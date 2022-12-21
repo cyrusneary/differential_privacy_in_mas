@@ -53,17 +53,17 @@ exp_logger['initial_soln_guess_setup'] = {
         'max_length_constr' : 20,
         }
 }
-# exp_logger['optimization_params'] = {
-#     'reachability_coef' : 10.0, # 10.0
-#     'exp_len_coef' : 0.1, # 0.1
-#     'total_corr_coef' : 4.0 # 4.0
-# }
-
 exp_logger['optimization_params'] = {
-    'reachability_coef' : 1.0, # 10.0
-    'exp_len_coef' : 0.0, # 0.1
-    'total_corr_coef' : 0.0 # 4.0
+    'reachability_coef' : 10.0, # 10.0
+    'exp_len_coef' : 0.1, # 0.1
+    'total_corr_coef' : 4.0 # 4.0
 }
+
+# exp_logger['optimization_params'] = {
+#     'reachability_coef' : 1.0, # 10.0
+#     'exp_len_coef' : 0.0, # 0.1
+#     'total_corr_coef' : 0.0 # 4.0
+# }
 
 ### BUILD THE GRIDWOLRD FROM SCRATCH
 if rebuild_gridworld:
