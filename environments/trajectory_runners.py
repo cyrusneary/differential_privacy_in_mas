@@ -3,6 +3,8 @@ from scipy.stats import bernoulli
 
 from differential_privacy.privacy_mechanism import build_privacy_mechanism
 
+import time
+
 def run_trajectory(env, policy : np.ndarray, max_steps : int = 50):
     """
     Run a trajectory from the joint initial state implementing the
@@ -218,7 +220,7 @@ def run_trajectory_intermittent(env,
 
     return traj
 
-def run_trajectory_private(env, policy : np.ndarray, max_steps : int = 50, epsilon=1, k=3):
+def run_trajectory_private(env, policy : np.ndarray, mu : np.ndarray, max_steps : int = 50):
     """
     Run a trajectory from the joint initial state under private 
     play implementing the specified joint policy.
@@ -231,6 +233,8 @@ def run_trajectory_private(env, policy : np.ndarray, max_steps : int = 50, epsil
         Matrix representing the policy. policy[s_ind, a_ind] is the 
         probability of taking the action indexed by a_ind from the 
         joint state indexed by s_ind.
+    mu : 
+        The privacy policy.
     max_steps : 
         Maximum number of steps to take in the trajectory.
     epsilon :
@@ -242,10 +246,7 @@ def run_trajectory_private(env, policy : np.ndarray, max_steps : int = 50, epsil
     -------
     traj : list
         List of indexes of states. 
-    """
-        
-    #Construct a privacy mechanism for each agent, everyone has the same epsilon for now
-    build_privacy_mechanism(env, epsilon=epsilon, k=k) 
+    """   
     
     traj = []
     agent_s_tuples = {} # This is where we will store the private copy of everyones state
@@ -285,7 +286,7 @@ def run_trajectory_private(env, policy : np.ndarray, max_steps : int = 50, epsil
             true_state = env.local_index_from_pos[s_tuple[2*agent_id:(2*agent_id+2)]]
             
             # Generate private state
-            private_states[agent_id] = np.random.choice(np.arange(env.Ns_local), p=env.mu[true_state, last_private_state[agent_id], :])
+            private_states[agent_id] = np.random.choice(np.arange(env.Ns_local), p=mu[true_state, last_private_state[agent_id], :])
         
         
         # Now each agent:
@@ -427,6 +428,10 @@ def empirical_success_rate_private(env,
     max_steps_per_trajectory :
         The maximum number of steps to include in each trajectory
         of the gif.
+    epsilon :
+        The privacy parameter.
+    k :
+        The adjacency parameter.
 
     Returns
     -------
@@ -434,11 +439,19 @@ def empirical_success_rate_private(env,
         A numerical value between 0 and 1 indicating the frequency
         at which the policy was observed to reach the target set.
     """
+    
+    #Construct a privacy mechanism for each agent, everyone has the same epsilon for now
+    mu = build_privacy_mechanism(env, epsilon=epsilon, k=k)  
 
     success_count = 0
     for t_ind in range(num_trajectories):
         np.random.seed()
-        temp_traj = run_trajectory_private(env, policy, max_steps=max_steps_per_trajectory)
+        temp_traj = run_trajectory_private(
+            env, 
+            policy, 
+            mu,
+            max_steps=max_steps_per_trajectory,
+        )
         if (temp_traj[-1] in env.target_indexes):
                 success_count = success_count + 1
 

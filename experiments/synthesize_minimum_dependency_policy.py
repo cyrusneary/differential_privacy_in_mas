@@ -14,7 +14,7 @@ from optimization_problems.max_entropy_policy import build_joint_entropy_program
 from optimization_problems.max_reachability_policy import build_reachability_LP
 from optimization_problems.random_policy import build_random_policy_program
 
-from environments.trajectory_runners import empirical_success_rate
+from environments.trajectory_runners import empirical_success_rate, empirical_success_rate_private
 
 # from utils.experiment_logger import ExperimentLogger
 # from utils.process_occupancy import *
@@ -68,6 +68,8 @@ exp_logger['optimization_params'] = {
 exp_logger['empirical_eval_settings'] = {
     'num_trajectories' : 1000,
     'max_steps_per_trajectory' : 200,
+    'privacy_parameter' : 1,
+    'adjacency_parameter' : 3,
 }
 
 ###########################################
@@ -242,6 +244,14 @@ empirical_rate_reach = empirical_success_rate(
     num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
     max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
 )
+private_rate_reach = empirical_success_rate_private(
+        gridworld,
+        policy_reach,
+        num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+        max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
+        epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
+        k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
+    )
 
 # Save the results
 exp_logger['max_reachability_results'] = {
@@ -252,15 +262,18 @@ exp_logger['max_reachability_results'] = {
     'expected_len' : expected_len_reach,
     'joint_entropy' : joint_entropy_reach,
     'total_corr_reach' : total_corr_reach,
-    'empirical_imag_success_rate' : empirical_rate_reach
+    'empirical_imag_success_rate' : empirical_rate_reach,
+    'empirical_private_success_rate' : private_rate_reach,
 }
 
 # Print the results to the terminal
 print(('Success probability: {}, \n \
         Imaginary Play success prob: {}, \n \
+        Private play success prob: {}, \n \
         expected length: {}, \n \
         joint entropy: {}'.format(success_prob_reach, 
                                   empirical_rate_reach,
+                                  private_rate_reach,
                                     expected_len_reach, 
                                     joint_entropy_reach)))
 
@@ -301,6 +314,14 @@ for i in range(100):
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
         max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
     )
+    private_rate = empirical_success_rate_private(
+        gridworld,
+        policy,
+        num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+        max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
+        epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
+        k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
+    )
 
     # Save the results of this iteration
     exp_logger['results'][i] = {
@@ -313,6 +334,7 @@ for i in range(100):
         'joint_entropy' : joint_entropy,
         'total_corr' : total_corr,
         'empirical_imag_success_rate' : empirical_rate,
+        'empirical_private_success_rate' : private_rate,
     }
     
     # Print the results to the terminal
@@ -323,6 +345,8 @@ for i in range(100):
                                     exp_logger['results'][i]['total_corr']
                                 )
         )
+    
+    print('Private Play success prob: {}'.format(exp_logger['results'][i]['empirical_private_success_rate']))
     
     print('Imaginary Play success prob: {}'.format(
         exp_logger['results'][i]['empirical_imag_success_rate']))
