@@ -15,20 +15,15 @@ num_data_points = 51
 tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
-save_file_name = '2022-12-21-10-14-18_ma_gridworld_total_corr_add_end_state_0p05.pkl' # three agent example from final submission
+# save_file_name = '2022-12-21-10-14-18_ma_gridworld_total_corr_add_end_state_0p05.pkl'
+save_file_name = '2022-12-22-18-07-35_ma_gridworld_minimum_dependency_0p05.pkl'
 save_str = os.path.join(base_path, save_file_name)
 
 with open(save_str, 'rb') as f:
     exp_logger = pickle.load(f)
 
-# save_file_name_reachability = '2021-10-06-16-09-44_ma_gridworld_reachability_0p05.pkl' # data used in paper
-save_file_name_reachability = '2022-12-21-10-35-48_ma_gridworld_total_corr_add_end_state_0p05.pkl'
-save_str_reachability = os.path.join(base_path, save_file_name_reachability)
-with open(save_str_reachability, 'rb') as f:
-    exp_logger_reachability = pickle.load(f)
-
-success_prob_reachability = exp_logger_reachability['results'][0]['success_prob'] * np.ones((num_data_points,))
-empirical_imag_reachability = exp_logger_reachability['results'][0]['empirical_imag_success_rate'] * np.ones((num_data_points,))
+success_prob_reachability = exp_logger['max_reachability_results']['success_prob'] * np.ones((num_data_points,))
+empirical_imag_reachability = exp_logger['max_reachability_results']['empirical_imag_success_rate'] * np.ones((num_data_points,))
 
 # Get the relevant data in numpy format
 iters_indexes = exp_logger['results'].keys()

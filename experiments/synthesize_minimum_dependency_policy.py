@@ -17,15 +17,20 @@ from optimization_problems.random_policy import build_random_policy_program
 # from utils.experiment_logger import ExperimentLogger
 # from utils.process_occupancy import *
 
+##########################
+#### Experimental settings
+##########################
+
 curr_datetime = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-exp_name = curr_datetime + '_ma_gridworld_total_corr_add_end_state_0p05'
+exp_name = curr_datetime + '_ma_gridworld_minimum_dependency_0p05'
 print(exp_name)
 exp_logger = {
     'experiment_name' : exp_name,
     'results' : {},
     }
 
-rebuild_gridworld = True
+exp_logger['rebuild_gridworld'] = True
+
 exp_logger['environment_settings'] = {
     'N_agents' : 2,
     'Nr' : 5,
@@ -39,7 +44,6 @@ exp_logger['environment_settings'] = {
     'seed' : 42,
 }
 
-exp_logger['rebuild_gridworld'] = rebuild_gridworld
 
 # exp_logger['initial_soln_guess_setup'] = {
 #     'type' : 'random', # reachability, entropy
@@ -59,14 +63,17 @@ exp_logger['optimization_params'] = {
     'total_corr_coef' : 4.0 # 4.0
 }
 
-# exp_logger['optimization_params'] = {
-#     'reachability_coef' : 1.0, # 10.0
-#     'exp_len_coef' : 0.0, # 0.1
-#     'total_corr_coef' : 0.0 # 4.0
-# }
+exp_logger['empirical_eval_settings'] = {
+    'num_trajectories' : 1000,
+    'max_steps_per_trajectory' : 200,
+}
 
-### BUILD THE GRIDWOLRD FROM SCRATCH
-if rebuild_gridworld:
+###########################################
+#### Construct the experimental environment
+###########################################
+
+# Build the gridworld from scratch
+if exp_logger['rebuild_gridworld']:
     # Build the gridworld
     print('Building gridworld')
     t_start = time.time()
@@ -84,7 +91,7 @@ if rebuild_gridworld:
                                     'saved_environments', 'ma_gridworld.pkl')
     gridworld.save(save_file_str)
 
-##### LOAD A PRE-CONSTRUCTED GRIDWORLD
+# load the previously constructed gridworld.
 else:
     load_file_str = os.path.join(os.path.abspath(os.path.curdir),
                                     '..', 'environments',
@@ -109,8 +116,12 @@ else:
 # Construct the corresponding MDP
 mdp = gridworld.build_mdp()
 
-##### Start with an easier optimization problem to get an initial guess.
+#####################################################
+#### Construct the optimziation problems of interest.
+#####################################################
 
+# Construct an easier policy synthesis optimization problem to use to get an
+# initial guess for the solution.
 if exp_logger['initial_soln_guess_setup']['type'] == 'random':
     # Construct and solve for a random initial policy
     rand_init = np.random.rand(mdp.Ns, (gridworld.Na_local + 1)**gridworld.N_agents) * 20
@@ -128,16 +139,13 @@ elif exp_logger['initial_soln_guess_setup']['type'] == 'reachability':
     prob_init, vars_init, params_init = build_reachability_LP(mdp, 
                         **exp_logger['initial_soln_guess_setup']['settings'])
 
-##### Build the linearized version of the 
-##### total correlation optimization problem
-
+# Construct the minimum-dependency policy synthesis optimization problem
 agent_state_size_list = []
 agent_action_size_list = []
 for agent_id in range(gridworld.N_agents):
     agent_state_size_list.append(gridworld.Ns_local)
     agent_action_size_list.append(gridworld.Na_local)
 
-# Construct and solve the optimization problem
 t = time.time()
 prob, vars, params, f_grad, g_grad = \
     build_linearized_program(mdp, 
@@ -151,7 +159,9 @@ prob, vars, params, f_grad, g_grad = \
         total_corr_coef=exp_logger['optimization_params']['total_corr_coef'])
 print('Constructed optimization problem in {} seconds.'.format(time.time()-t)) 
 
+#######################################################
 ##### Solve the initial problem to get an initial guess
+#######################################################
 
 t = time.time()
 # prob_init.solve(verbose=True, solver='ECOS')
@@ -192,15 +202,81 @@ print(('Success probability: {}, \n \
 
 x_start = occupancy_vars_start
 
-##### Solve the problem via convex-concave procedure
+##################################################################
+###### Solve for the (baseline) maximum reachability joint policy.
+##################################################################
+
+# Set the parameters in the optimization objective to ignore 
+# total correlation and expected trajectory length.
+params[0].value = 1.0
+params[1].value = 0.0
+params[2].value = 0.0
+params[3].value = x_start
+ 
+t = time.time()
+# Use ECOS instead of MOSEK to solve the pure reachability LP.
+prob.solve(verbose=True, solver='ECOS') 
+print('Solved for maximum reachability policy in {} seconds'.format(time.time() - t)) 
+
+# Save the max reachability policy and its statistics.
+occupancy_vars_reach = process_occupancy_vars(vars[0])
+policy_reach = policy_from_occupancy_vars(mdp, occupancy_vars_reach, gridworld.N_agents)
+success_prob_reach = success_probability_from_occupancy_vars(mdp, occupancy_vars_reach, gridworld.N_agents)
+expected_len_reach = expected_len_from_occupancy_vars(mdp, occupancy_vars_reach)
+joint_entropy_reach = compute_joint_entropy(mdp, occupancy_vars_reach, gridworld.N_agents)
+total_corr_reach = compute_total_correlation(mdp,
+                            N_agents=gridworld.N_agents,
+                            agent_state_size_list=agent_state_size_list,
+                            agent_action_size_list=agent_action_size_list,
+                            f_grad=f_grad,
+                            g_grad=g_grad,
+                            x=occupancy_vars_reach)
+
+# Empirically test the success rate during imaginary play.
+empirical_rate_reach = gridworld.empirical_success_rate(
+    policy_reach,
+    use_imaginary_play=True,
+    num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+    max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
+)
+
+# Save the results
+exp_logger['max_reachability_results'] = {
+    'occupancy_vars' : occupancy_vars_reach,
+    'policy' : policy_reach,
+    'opt_val' : prob.solution.opt_val,
+    'success_prob' : success_prob_reach,
+    'expected_len' : expected_len_reach,
+    'joint_entropy' : joint_entropy_reach,
+    'total_corr_reach' : total_corr_reach,
+    'empirical_imag_success_rate' : empirical_rate_reach
+}
+
+# Print the results to the terminal
+print(('Success probability: {}, \n \
+        Imaginary Play success prob: {}, \n \
+        expected length: {}, \n \
+        joint entropy: {}'.format(success_prob_reach, 
+                                  empirical_rate_reach,
+                                    expected_len_reach, 
+                                    joint_entropy_reach)))
+
+# Set the parameters back to the original values.
+params[0].value = exp_logger['optimization_params']['reachability_coef']
+params[1].value = exp_logger['optimization_params']['exp_len_coef']
+params[2].value = exp_logger['optimization_params']['total_corr_coef']
+
+########################################################################################
+##### Solve the minimum-dependency policy synthesis problem via convex-concave procedure
+########################################################################################
 
 x_last = x_start
 for i in range(100):
     params[3].value = x_last
-    # prob.solve(verbose=True, solver='ECOS') # Use ECOS to solve the pure reachability problem.
+    # prob.solve(verbose=True, solver='ECOS') 
     prob.solve(verbose=True, solver='MOSEK')
 
-    # Save the results of the current iteration
+    # Compute the results of the current iteration
     occupancy_vars = process_occupancy_vars(vars[0])
     policy = policy_from_occupancy_vars(mdp, occupancy_vars, gridworld.N_agents)
     success_prob = success_probability_from_occupancy_vars(mdp, occupancy_vars, gridworld.N_agents)
@@ -213,11 +289,15 @@ for i in range(100):
                                 f_grad=f_grad,
                                 g_grad=g_grad,
                                 x=occupancy_vars)
+    
+    # Empirically test the success rate during imaginary play.
     empirical_rate = gridworld.empirical_success_rate(policy,
-                                                use_imaginary_play=True,
-                                                num_trajectories=1000,
-                                                max_steps_per_trajectory=200)
+        use_imaginary_play=True,
+        num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+        max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
+    )
 
+    # Save the results of this iteration
     exp_logger['results'][i] = {
         'occupancy_vars' : occupancy_vars,
         'policy' : policy,
@@ -229,16 +309,39 @@ for i in range(100):
         'total_corr' : total_corr,
         'empirical_imag_success_rate' : empirical_rate,
     }
+    
+    # Print the results to the terminal
     print('[{}]: Success probability: {}, \
-            total correlation: {}'.format(i, 
-                                        exp_logger['results'][i]['success_prob'],
-                                        exp_logger['results'][i]['total_corr']))
-    print('Imaginary Play success prob: {}'.format(exp_logger['results'][i]['empirical_imag_success_rate']))
+            total correlation: {}'.format(
+                                    i, 
+                                    exp_logger['results'][i]['success_prob'],
+                                    exp_logger['results'][i]['total_corr']
+                                )
+        )
+    
+    print('Imaginary Play success prob: {}'.format(
+        exp_logger['results'][i]['empirical_imag_success_rate']))
+    
     print('TC: {}'.format(vars[1].value))
-    print('||x - x_last||: {}'.format(np.linalg.norm(exp_logger['results'][i]['occupancy_vars'] - exp_logger['results'][i]['x_last'])))
+    
+    print('||x - x_last||: {}'.format(
+        np.linalg.norm(
+            exp_logger['results'][i]['occupancy_vars'] - \
+                exp_logger['results'][i]['x_last']
+            )
+        )
+    )
+    
     print('Grad: {}'.format(np.linalg.norm(vars[2].value)))
-    print('Expected Difference: {}'.format(np.sum(np.multiply(vars[2].value, exp_logger['results'][i]['occupancy_vars'] - exp_logger['results'][i]['x_last']))))
+    
+    print('Expected Difference: {}'.format(
+        np.sum(
+            np.multiply(
+                vars[2].value, exp_logger['results'][i]['occupancy_vars'] - \
+                    exp_logger['results'][i]['x_last']))))
+    
     print('Convex term: {}'.format(-vars[3].value))
+    
     if i >= 1:
         print('Last total_corr: {}'.format(-vars[3].value - exp_logger['results'][i-1]['joint_entropy']))
 
@@ -254,32 +357,3 @@ for i in range(100):
     
     with open(save_str, 'wb') as f:
         pickle.dump(exp_logger, f) 
-    
-# ##### Empirically measure imaginary play success
-# t_start = time.time()
-# empirical_rate = gridworld.empirical_success_rate(policy,
-#                                                 use_imaginary_play=True,
-#                                                 num_trajectories=1000,
-#                                                 max_steps_per_trajectory=30)
-# print('Imaginary play success rate: {} \
-#         in {} seconds'.format(empirical_rate, time.time() - t_start))
-
-# ##### Create some GIFs
-
-# gif_save_folder = os.path.join(os.path.abspath(os.path.curdir), 'gifs')
-
-# # First for the random initial policy
-# gridworld.generate_gif(policy_start, 
-#                         save_folder_str=gif_save_folder,
-#                         save_file_name='ma_gridworld_random_init_policy.gif',
-#                         use_imaginary_play=False,
-#                         num_trajectories=5,
-#                         max_steps_per_trajectory=30)
-
-# # Now for the final solution policy
-# gridworld.generate_gif(policy, 
-#                         save_folder_str=gif_save_folder,
-#                         save_file_name='ma_gridworld_total_corr.gif',
-#                         use_imaginary_play=False,
-#                         num_trajectories=5,
-#                         max_steps_per_trajectory=30)
