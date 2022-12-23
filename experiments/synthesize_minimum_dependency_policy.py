@@ -14,6 +14,8 @@ from optimization_problems.max_entropy_policy import build_joint_entropy_program
 from optimization_problems.max_reachability_policy import build_reachability_LP
 from optimization_problems.random_policy import build_random_policy_program
 
+from environments.trajectory_runners import empirical_success_rate
+
 # from utils.experiment_logger import ExperimentLogger
 # from utils.process_occupancy import *
 
@@ -233,7 +235,8 @@ total_corr_reach = compute_total_correlation(mdp,
                             x=occupancy_vars_reach)
 
 # Empirically test the success rate during imaginary play.
-empirical_rate_reach = gridworld.empirical_success_rate(
+empirical_rate_reach = empirical_success_rate(
+    gridworld,
     policy_reach,
     use_imaginary_play=True,
     num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
@@ -291,7 +294,9 @@ for i in range(100):
                                 x=occupancy_vars)
     
     # Empirically test the success rate during imaginary play.
-    empirical_rate = gridworld.empirical_success_rate(policy,
+    empirical_rate = empirical_success_rate(
+        gridworld,
+        policy,
         use_imaginary_play=True,
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
         max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']

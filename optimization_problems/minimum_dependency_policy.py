@@ -533,19 +533,3 @@ def compute_total_correlation(mdp : MDP,
 
     total_corr = - convex_term - joint_entropy
     return total_corr
-
-    grad = 0.0
-    convex_term = 0.0
-    for i in range(N_agents):
-        for s_local in range(agent_state_size_list[i]):
-            for a_local in range(agent_action_size_list_aux[i]):
-                numerator = cp.sum(x_last[np.where(f_grad[i][s_local][a_local])])
-                denominator = cp.sum(x_last[np.where(g_grad[i][s_local])])
-                ratio_term = numerator / denominator
-                log_term = cp.log(ratio_term)
-
-                grad = grad + log_term * f_grad[i][s_local][a_local]
-
-                convex_term = convex_term + numerator * log_term
-
-    linearized_term = - convex_term - cp.sum(cp.multiply(grad, (x - x_last)))
