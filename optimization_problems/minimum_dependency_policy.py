@@ -4,6 +4,7 @@ from cvxpy.lin_ops.lin_utils import conv
 from cvxpy.settings import NONNEG
 import numpy as np
 from scipy.special import rel_entr, entr
+from scipy.stats import entropy
 
 import sys, os, time
 sys.path.append('../')
@@ -305,7 +306,7 @@ def policy_from_occupancy_vars(mdp : MDP, x : np.ndarray, N_agents : int):
     policy : ndarray
         Array built such that policy[s,a] represents the probability
         of taking action a from state s under this policy.
-        Note that policy[s,a] = 0 for all a if s is absorbing.
+        Note that policy[s,a] is a uniform distribution over a if s is absorbing.
     """
     Na_local = round(pow(mdp.Na, 1/N_agents))
     Na = (Na_local + 1) ** N_agents
@@ -336,6 +337,145 @@ def policy_from_occupancy_vars(mdp : MDP, x : np.ndarray, N_agents : int):
             else:
                 policy[s,a] = 1.0 / len(x_mod[s,:])
     return policy
+
+def marginalize_policy(policy : np.ndarray, mdp : MDP, N_agents : int):
+    """
+    Given a joint policy (which maps joint states and joint actions to probabilities),
+    compute a collection of local policies (one for each agent) by marginalizing over
+    the actions of the other agents.
+    
+    Parameters
+    ----------
+    policy : ndarray
+        Array built such that policy[s,a] represents the probability
+        of taking action a from state s under this policy.
+        Note that policy[s,a] is a uniform distribution over a if s is absorbing.
+    mdp : MDP
+        An object representing the MDP on which the policy is defined.
+    N_agents : int
+        The number of agents acting in the MDP.
+    
+    Returns
+    -------
+        local_policies : list of ndarray
+            Each element of the list is a policy for a single agent.
+    """
+    local_policies = []
+    
+    # Want to sum over all the actions corresponding to the possible actions of the other agents
+    # while this agent is taking its current action.
+    
+    Na_local = round(pow(mdp.Na, 1/N_agents))
+
+    action_shape = tuple(Na_local for i in range(N_agents))
+    Na_joint_indexes = np.arange(mdp.Na)
+        
+    for i in range(N_agents):
+        local_policy = np.zeros((mdp.Ns, Na_local))
+        for s in range(mdp.Ns):
+            for a in range(Na_local):
+                compatible_team_actions = np.where(np.unravel_index(Na_joint_indexes, action_shape)[i] == a)
+                local_policy[s, a] = np.sum(policy[s, compatible_team_actions])
+        local_policies.append(local_policy)
+        
+    return local_policies
+
+def compute_product_policy(
+        marginalized_policies : list, 
+        mdp : MDP, 
+        N_agents : int
+    ) -> np.ndarray:
+    """
+    Given a collection of local policies (one for each agent), compute the joint policy
+    that results from having each agent independently selecting actions from
+    their local policy.
+    
+    Parameters
+    ----------
+    marginalized_policies : list of ndarray
+        Each element of the list is a policy for a single agent.
+    mdp : MDP
+        An object representing the MDP on which the policies are defined.
+    N_agents : int
+        The number of agents acting in the MDP.
+        
+    Returns
+    -------
+    policy : ndarray
+        Array built such that policy[s,a] represents the probability
+        of taking joint action a from joint state s under this policy.
+        Note that policy[s,a] is a uniform distribution over a if s is absorbing.
+    """
+
+    Ns_joint = mdp.Ns
+    Na_joint = mdp.Na
+    
+    Na_local = round(pow(Na_joint, 1/N_agents))
+    action_shape = tuple(Na_local for i in range(N_agents))
+    
+    policy = np.zeros((Ns_joint, Na_joint))
+    
+    for s in range(Ns_joint):
+        for a in range(Na_joint):
+            for i in range(N_agents):
+                local_policy = marginalized_policies[i]
+                local_action = np.unravel_index(a, action_shape)[i]
+                                
+                if i == 0:
+                    policy[s, a] = local_policy[s, local_action]
+                else:
+                    policy[s,a] *= local_policy[s, local_action]
+                
+    return policy
+
+def kl_divergence_policies(
+        policy_1 : np.ndarray, 
+        policy_2 : np.ndarray,
+    ) -> float:
+    """
+    Compute the KL divergence between two policies.
+    
+    Parameters
+    ----------
+    policy_1 : ndarray
+        Array built such that policy_1[s,a] represents the probability
+        of taking action a from state s under this policy.
+        Note that policy_1[s,a] is a uniform distribution over a if s is absorbing.
+    policy_2 : ndarray
+
+    Returns
+    -------
+    KL_divergence : float
+        The KL divergence between the two policies.
+    """
+    return entropy(policy_1.flatten(), policy_2.flatten())
+
+def kl_divergence_joint_and_marginalized_policies(
+        joint_policy : np.ndarray, 
+        marginalized_policies : list,
+        mdp : MDP,
+        N_agents : int
+    ) -> float:
+    """
+    Compute the KL divergence between a joint policy and the product of its marginals.
+    
+    Parameters
+    ----------
+    joint_policy : ndarray
+        Array built such that joint_policy[s,a] represents the probability
+        of taking joint action a from joint state s under this policy.
+    marginalized_policies : list of ndarray
+        Each element of the list is a policy for a single agent.
+    mdp : MDP
+        An object representing the MDP on which the policies are defined.
+    N_agents : int
+        The number of agents acting in the MDP.
+        
+    Returns
+    -------
+    KL_divergence : float
+    """
+    return kl_divergence_policies(joint_policy, compute_product_policy(marginalized_policies, mdp, N_agents))
 
 def success_probability_from_occupancy_vars(mdp : MDP, x : np.ndarray, N_agents : int):
     """

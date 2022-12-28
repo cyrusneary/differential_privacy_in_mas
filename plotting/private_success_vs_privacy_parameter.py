@@ -10,6 +10,9 @@ import pickle
 from environments.ma_gridworld import MAGridworld
 from environments.trajectory_runners import empirical_success_rate_private
 
+from optimization_problems.minimum_dependency_policy import \
+    marginalize_policy, compute_product_policy, kl_divergence_policies, kl_divergence_joint_and_marginalized_policies
+
 # Plotting parameters
 fontsize = 12
 linewidth = 3
@@ -20,7 +23,8 @@ tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 ##### Load the saved experiment file
 
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
-save_file_name = '2022-12-23-12-02-14_ma_gridworld_minimum_dependency_0p05.pkl'
+# save_file_name = '2022-12-23-12-02-14_ma_gridworld_minimum_dependency_0p05.pkl'
+save_file_name = '2022-12-27-18-59-30_ma_gridworld_minimum_dependency_0p05.pkl'
 save_str = os.path.join(base_path, save_file_name)
 
 with open(save_str, 'rb') as f:
@@ -35,14 +39,25 @@ print('Constructed the gridworld in {} seconds.'.format(time.time() - t_start))
 epsilon_list = np.linspace(0.01, 10.0, num=11)
 md_success_probs = []
 base_success_probs = []
-lower_bound_list = []
+md_success_probs_marginalized_policies = []
+base_success_probs_marginalized_policies = []
+
+md_policy = exp_logger['results'][max(exp_logger['results'].keys())]['policy']
+base_policy = exp_logger['max_reachability_results']['policy']
+
+mdp = gridworld.build_mdp()
+N_agents = exp_logger['environment_settings']['N_agents']
+
+marginalized_md_policy_list = marginalize_policy(md_policy, mdp, N_agents)
+marginalized_base_policy_list = marginalize_policy(base_policy, mdp, N_agents)
+
+md_policy_kl = kl_divergence_joint_and_marginalized_policies(md_policy, marginalized_md_policy_list, mdp, N_agents)
+base_policy_kl = kl_divergence_joint_and_marginalized_policies(base_policy, marginalized_base_policy_list, mdp, N_agents)
+
+print("KL divergence between the minimum dependency policy and the marginalized policies: {}".format(md_policy_kl))
+print("KL divergence between the baseline policy and the marginalized policies: {}".format(base_policy_kl))
 
 for e in epsilon_list:
-    md_policy = exp_logger['results'][max(exp_logger['results'].keys())]['policy']
-    base_policy = exp_logger['max_reachability_results']['policy']
-
-    md_policy_val = exp_logger['results'][max(exp_logger['results'].keys())]['success_prob']
-    md_total_corr = exp_logger['results'][max(exp_logger['results'].keys())]['total_corr']
 
     md_success_prob = \
         empirical_success_rate_private(gridworld, md_policy,
@@ -54,13 +69,26 @@ for e in epsilon_list:
                                             num_trajectories=1000,
                                             max_steps_per_trajectory=200, 
                                             epsilon=e, k=3)
-    # lower_bound = md_policy_val - np.sqrt(1 - np.exp(-e * md_total_corr))
+        
+    md_success_prob_marginalized_policies = \
+        empirical_success_rate_private(gridworld, marginalized_md_policy_list,
+                                            num_trajectories=1000,
+                                            max_steps_per_trajectory=200,
+                                            epsilon=e, k=3,
+                                            use_marginalized_policies=True)
+    base_success_prob_marginalized_policies = \
+        empirical_success_rate_private(gridworld, marginalized_base_policy_list,
+                                            num_trajectories=1000,
+                                            max_steps_per_trajectory=200, 
+                                            epsilon=e, k=3,
+                                            use_marginalized_policies=True)
 
     print('Finished simulating $\epsilon$ = {}'.format(e))
 
     md_success_probs.append(md_success_prob)
     base_success_probs.append(base_success_prob)
-    # lower_bound_list.append(lower_bound)
+    md_success_probs_marginalized_policies.append(md_success_prob_marginalized_policies)
+    base_success_probs_marginalized_policies.append(base_success_prob_marginalized_policies)
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
@@ -77,6 +105,18 @@ ax.plot(epsilon_list, base_success_probs,
         linewidth=linewidth, 
         markersize=markersize,
         label='Baseline Policy')
+ax.plot(epsilon_list, md_success_probs_marginalized_policies, 
+        color='blue', 
+        marker='d', 
+        linewidth=linewidth, 
+        markersize=markersize, 
+        label='Minimum Dependency Policy Marginalized Policies')
+ax.plot(epsilon_list, base_success_probs_marginalized_policies, 
+        color='red', 
+        marker='d', 
+        linewidth=linewidth, 
+        markersize=markersize,
+        label='Baseline Policy Marginalized Policies')
 # ax.plot(epsilon_list, lower_bound_list, color='black')
 
 ax.grid()

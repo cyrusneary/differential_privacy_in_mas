@@ -220,7 +220,13 @@ def run_trajectory_intermittent(env,
 
     return traj
 
-def run_trajectory_private(env, policy : np.ndarray, mu : np.ndarray, max_steps : int = 50):
+def run_trajectory_private(
+        env, 
+        policy, 
+        mu : np.ndarray, 
+        max_steps : int = 50,
+        use_marginalized_policies : bool = False,
+    ):
     """
     Run a trajectory from the joint initial state under private 
     play implementing the specified joint policy.
@@ -230,9 +236,13 @@ def run_trajectory_private(env, policy : np.ndarray, mu : np.ndarray, max_steps 
     env :
         The environment in which to generate the trajectory.
     policy : 
-        Matrix representing the policy. policy[s_ind, a_ind] is the 
-        probability of taking the action indexed by a_ind from the 
-        joint state indexed by s_ind.
+        Representation of the team policy. 
+        If use_marginalized_policies is False, policy is an ndarray and
+        policy[s_ind, a_ind] is the probability of taking the joint action 
+        indexed by a_ind from the joint state indexed by s_ind.
+        If use_marginalized_policies is True, policy is a list of ndarrays and
+        policy[agent_id][s_ind, a_ind] is the probability of the agent specified
+        by agent_id taking the local action a_ind, from the joint state s_ind.
     mu : 
         The privacy policy.
     max_steps : 
@@ -241,6 +251,9 @@ def run_trajectory_private(env, policy : np.ndarray, mu : np.ndarray, max_steps 
         The privacy parameter.
     k :
         The adjacency parameter.
+    use_marginalized_policies :
+        A boolean flag indicating whether or not to use marginalized policies
+        when simulating the team's behavior.
 
     Returns
     -------
@@ -254,6 +267,7 @@ def run_trajectory_private(env, policy : np.ndarray, mu : np.ndarray, max_steps 
     agent_a_inds = {} #
     
     actions = np.arange(env.Na_joint)
+    actions_local = np.arange(env.Na_local)
     states = np.arange(env.Ns_joint)
 
     s_tuple = env.pos_from_index[env.initial_index]
@@ -288,7 +302,6 @@ def run_trajectory_private(env, policy : np.ndarray, mu : np.ndarray, max_steps 
             # Generate private state
             private_states[agent_id] = np.random.choice(np.arange(env.Ns_local), p=mu[true_state, last_private_state[agent_id], :])
         
-        
         # Now each agent:
         # - collects the private info from the other agents to construct s hat
         agents_actions = {}
@@ -299,18 +312,24 @@ def run_trajectory_private(env, policy : np.ndarray, mu : np.ndarray, max_steps 
                     agent_i_s_hat=(agent_i_s_hat + s_tuple[2*agent_id:(2*agent_id+2)]) # Use your own real state
                 else:
                     agent_i_s_hat=(agent_i_s_hat + env.local_pos_from_index[private_states[i]]) # use everyone elses private data
+            
             # Get action disctribution based on the private information
             agent_i_s_hat_idx = env.index_from_pos[agent_i_s_hat]
 
-            act_dist= policy[agent_i_s_hat_idx,:]
-            
-            # Get the team's action, as imagined by the agents private information
-            act = np.random.choice(actions, p=act_dist)
-            
-            # Extract my action from the joint action
-            my_action = env.action_tuple_from_index[act][agent_id]
-            agents_actions[agent_id]=my_action
-            
+            if not use_marginalized_policies:
+                act_dist = policy[agent_i_s_hat_idx,:]
+                
+                # Get the team's action, as imagined by the agents private information
+                act = np.random.choice(actions, p=act_dist)
+                
+                # Extract my action from the joint action
+                my_action = env.action_tuple_from_index[act][agent_id]
+                agents_actions[agent_id] = my_action
+            else:
+                local_policy = policy[agent_id]
+                my_action = np.random.choice(actions_local, p=local_policy[agent_i_s_hat_idx,:])
+                agents_actions[agent_id] = my_action
+                
         # Now that we have each agents action, make it a tuple joint action
         a_tuple = tuple(agents_actions[agent_id] for agent_id in range(env.N_agents))
         a_joint_id = env.action_index_from_tuple[a_tuple]
@@ -405,11 +424,13 @@ def empirical_intermittent_success_rate(env,
     return success_count / num_trajectories
 
 def empirical_success_rate_private(env,
-                                policy : np.ndarray,
+                                policy,
                                 num_trajectories : int = 1000,
                                 max_steps_per_trajectory : int = 50,
                                 epsilon=1,
-                                k=3):
+                                k=3,
+                                use_marginalized_policies : bool = False,
+                            ):
     """
     Run a trajectory from the joint initial state implementing the
     specified policy with full communication.
@@ -417,9 +438,13 @@ def empirical_success_rate_private(env,
     Parameters
     ----------
     policy : 
-        A (Ns, Na) Matrix representing the policy. 
-        policy[s_ind, a_ind] is the probability of taking the action
+        Representation of the team policy. 
+        If use_marginalized_policies is False, policy is an ndarray and
+        policy[s_ind, a_ind] is the probability of taking the joint action 
         indexed by a_ind from the joint state indexed by s_ind.
+        If use_marginalized_policies is True, policy is a list of ndarrays and
+        policy[agent_id][s_ind, a_ind] is the probability of the agent specified
+        by agent_id taking the local action a_ind, from the joint state s_ind.
     use_imaginary_play :
         A boolean flag indicating whether or not to use imaginary 
         play when generating the gifs.
@@ -432,6 +457,9 @@ def empirical_success_rate_private(env,
         The privacy parameter.
     k :
         The adjacency parameter.
+    use_marginalized_policies :
+        A boolean flag indicating whether or not to use marginalized policies
+        when simulating the team's performance.
 
     Returns
     -------
@@ -451,6 +479,7 @@ def empirical_success_rate_private(env,
             policy, 
             mu,
             max_steps=max_steps_per_trajectory,
+            use_marginalized_policies=use_marginalized_policies,
         )
         if (temp_traj[-1] in env.target_indexes):
                 success_count = success_count + 1

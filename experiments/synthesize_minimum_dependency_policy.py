@@ -70,6 +70,7 @@ exp_logger['empirical_eval_settings'] = {
     'max_steps_per_trajectory' : 200,
     'privacy_parameter' : 1,
     'adjacency_parameter' : 3,
+    'use_marginalized_policies' : True,
 }
 
 ###########################################
@@ -244,14 +245,30 @@ empirical_rate_reach = empirical_success_rate(
     num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
     max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
 )
-private_rate_reach = empirical_success_rate_private(
+
+if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
+    marginalized_policies = marginalize_policy(policy_reach, mdp, gridworld.N_agents)
+    policy_kl = kl_divergence_joint_and_marginalized_policies(policy_reach, marginalized_policies, mdp, gridworld.N_agents)
+    
+    private_rate_reach = empirical_success_rate_private(
         gridworld,
-        policy_reach,
+        marginalized_policies,
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
         max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
         epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
         k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
+        use_marginalized_policies=True,
     )
+else:
+    private_rate_reach = empirical_success_rate_private(
+            gridworld,
+            policy_reach,
+            num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+            max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
+            epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
+            k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
+            use_marginalized_policies=False,
+        )
 
 # Save the results
 exp_logger['max_reachability_results'] = {
@@ -265,6 +282,12 @@ exp_logger['max_reachability_results'] = {
     'empirical_imag_success_rate' : empirical_rate_reach,
     'empirical_private_success_rate' : private_rate_reach,
 }
+
+if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
+    exp_logger['max_reachability_results']['marginalized_policies'] = marginalized_policies
+    exp_logger['max_reachability_results']['policy_kl'] = policy_kl
+    
+    print('KL divergence between joint and marginalized policies: {}'.format(policy_kl))
 
 # Print the results to the terminal
 print(('Success probability: {}, \n \
@@ -314,14 +337,30 @@ for i in range(100):
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
         max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
     )
-    private_rate = empirical_success_rate_private(
-        gridworld,
-        policy,
-        num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
-        max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
-        epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
-        k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
-    )
+    
+    if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
+        marginalized_policies = marginalize_policy(policy, mdp, gridworld.N_agents)
+        policy_kl = kl_divergence_joint_and_marginalized_policies(policy, marginalized_policies, mdp, gridworld.N_agents)
+        
+        private_rate = empirical_success_rate_private(
+            gridworld,
+            marginalized_policies,
+            num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+            max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
+            epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
+            k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
+            use_marginalized_policies=True,
+        )
+    else:
+        private_rate = empirical_success_rate_private(
+            gridworld,
+            policy,
+            num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+            max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
+            epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
+            k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
+            use_marginalized_policies=False,
+        )
 
     # Save the results of this iteration
     exp_logger['results'][i] = {
@@ -336,6 +375,12 @@ for i in range(100):
         'empirical_imag_success_rate' : empirical_rate,
         'empirical_private_success_rate' : private_rate,
     }
+    
+    if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
+        exp_logger['results'][i]['marginalized_policies'] = marginalized_policies
+        exp_logger['results'][i]['policy_kl'] = policy_kl
+        
+        print('KL divergence between joint and marginalized policies: {}'.format(policy_kl))
     
     # Print the results to the terminal
     print('[{}]: Success probability: {}, \
