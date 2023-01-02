@@ -1,4 +1,4 @@
-# differential_privacy_in_multiagent_systems
+# Differential Privacy in Multiagent Systems
 
 ## Using the code
 To generate a minimum dependency policy, set the current directory to experiments/ and run
