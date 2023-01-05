@@ -8,7 +8,6 @@ sys.path.append('../')
 
 from environments.ma_gridworld import MAGridworld
 
-# from optimization_problems.total_corr2 import build_linearized_program
 from optimization_problems.minimum_dependency_policy import *
 from optimization_problems.max_entropy_policy import build_joint_entropy_program
 from optimization_problems.max_reachability_policy import build_reachability_LP

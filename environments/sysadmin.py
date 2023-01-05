@@ -11,49 +11,36 @@ from markov_decision_process.mdp import MDP
 
 from scipy.stats import bernoulli
 
-class MAGridworld(object):
+class SysAdmin(object):
 
     def __init__(self, 
-                N_agents : int = 2,
-                Nr : int = 5, 
-                Nc : int = 5,
-                slip_p : float = 0.1,
-                initial_state : tuple = (4, 0, 4, 4),
-                target_states : list = [(4, 4, 4, 0)],
-                dead_states : list = [],
-                lava : list = [(0, 4), (0, 0)],
-                walls : list = [],
+                N_agents : int = 4,
+                p_repair : float = 0.1,
+                p_unhealthy : float = 0.1,
+                p_down : float = 0.1,
+                initial_state : tuple = (0, 0, 3, 3),
                 load_file_str : str = '',
                 seed : int = 0
                 ):
         """
-        Initializer for the Multiagent Gridworld object.
+        Initializer for the SysAdmin environment object.
 
         The team's states and actions are represented as:
-        (row1, col1, row2, col2, ..., rowN, colN)
+        (state1, state2, ..., stateN)
         (action1, action2, ..., actionN)
 
         Parameters
         ----------
         N_agents :
             Number of agents in the gridworld.
-        Nr :
-            Number of gridworld rows.
-        Nc :
-            Number of gridworld columns.
-        slip_p :
-            Slip probability. Should be 0 <= slip_p <= 1
+        p_repair :
+            The probability of returning to a healthy state when waiting in the repair state.
+        p_unhealthy :
+            The probability of transitioning from a healthy state to an unhealthy state.
+        p_down :
+            The probability of transitioning from an unhealthy state to a down state.
         initial_state :
-            The initial joint position of the agents in the gridworld
-        target_states :
-            List of joint positions of target states for the various 
-            agents in the gridworld.
-        dead_states :
-            List of positions of dead states in the gridworld.
-        lava :
-            List of positions of lava in the gridworld.
-        walls :
-            List of positions of the walls in the gridworld.
+            The initial joint position of the agents in the environment.
         load_file_str :
             String representing the path of a data file to use to load a
             pre-build multiagent gridworld object. If load_file_str = '', 
@@ -65,45 +52,48 @@ class MAGridworld(object):
         if load_file_str == '':
             np.random.seed(seed)
 
-            self.Nr = Nr
-            self.Nc = Nc
-            self.Ns_local = self.Nr * self.Nc
+            # Local states:
+            # 0 : healthy
+            # 1 : unhealthy
+            # 2 : repairing
+            # 3 : down
+            self.Ns_local = 4
             self.N_agents = N_agents
             self.Ns_joint = (self.Ns_local)**self.N_agents
 
             # Actions:
-            # 0 : right
-            # 1 : up
-            # 2 : left
-            # 3 : down
-            # 4 : stay
-            self.Na_local = 5
+            # 0 : wait
+            # 1 : repair
+            self.Na_local = 2
             self.Na_joint = self.Na_local**self.N_agents
-            
+
+            self.team_state_tuple_shape = tuple(self.Ns_local for i in range(self.N_agents))
+
+
             self._construct_state_space()
             self._construct_action_space()
 
-            assert len(initial_state) == self.N_agents * 2
+            # Check that the initial state is valid.
+            assert len(initial_state) == self.N_agents
             self.initial_state = initial_state
             self.initial_index = self.index_from_pos[initial_state]
             assert self.initial_index <= self.Ns_joint - 1
 
-            assert len(target_states) > 0
-            self.target_states = target_states
+            self._construct_target_states()
             self.target_indexes = [self.index_from_pos[t_state] 
                                     for t_state in self.target_states]
 
-            assert slip_p <= 1.0
-            self.slip_p = slip_p
-
-            self.dead_states = dead_states
-            self.lava = lava
-            self._construct_collision_dead_states()
-            self._construct_lava_dead_states()
+            self._construct_dead_states()
             self.dead_indexes = [self.index_from_pos[d_state]
                                     for d_state in self.dead_states]
 
-            self.walls = walls
+            assert p_repair <= 1.0 and p_repair >= 0.0
+            assert p_unhealthy <= 1.0 and p_unhealthy >= 0.0
+            assert p_down <= 1.0 and p_down >= 0.0
+
+            self.p_repair = p_repair
+            self.p_unhealthy = p_unhealthy
+            self.p_down = p_down
 
             self._build_transition_matrix()
 
@@ -117,8 +107,6 @@ class MAGridworld(object):
         Save the multiagent gridworld object.
         """
         save_dict = {}
-        save_dict['Nr'] = self.Nr
-        save_dict['Nc'] = self.Nc
         save_dict['N_agents'] = self.N_agents
         save_dict['Ns_local'] = self.Ns_local
         save_dict['Ns_joint'] = self.Ns_joint
@@ -131,8 +119,6 @@ class MAGridworld(object):
         save_dict['slip_p'] = self.slip_p
         save_dict['dead_states'] = self.dead_states
         save_dict['dead_indexes'] = self.dead_indexes
-        save_dict['lava'] = self.lava
-        save_dict['walls'] = self.walls
         save_dict['T'] = self.T
         save_dict['seed'] = self.seed
 
@@ -170,6 +156,18 @@ class MAGridworld(object):
         self._construct_state_space()
         self._construct_action_space()
 
+    def index_from_state_tuple(self, state_tuple):
+        """
+        Return the joint state index from a tuple of local state indexes.
+        """
+        return np.unravel_index(state_tuple, )
+
+    def state_tuple_from_index(self, index):
+        """
+        Return the tuple of local state indexes from a joint state index.
+        """
+        return np.unravel_index(index, self.team_state_tuple_shape)
+
     def _construct_state_space(self):
         """
         Build two maps providing state indexes from 
@@ -178,19 +176,11 @@ class MAGridworld(object):
         self.index_from_pos = {}
         self.pos_from_index = {}
 
-        position_shape = tuple(self.Nr if i % 2 == 0 
-                                else self.Nc for i in range(self.N_agents*2))
+        team_state_tuple_shape = tuple(self.Ns_local for i in range(self.N_agents))
 
         for i in range(self.Ns_joint):
-            self.pos_from_index[i] = np.unravel_index(i, position_shape)
+            self.pos_from_index[i] = np.unravel_index(i, team_state_tuple_shape)
             self.index_from_pos[self.pos_from_index[i]] = i
-
-        self.local_index_from_pos = {}
-        self.local_pos_from_index = {}
-
-        for i in range(self.Ns_local):
-            self.local_pos_from_index[i] = np.unravel_index(i, (self.Nr, self.Nc))
-            self.local_index_from_pos[self.local_pos_from_index[i]] = i
 
     def _construct_action_space(self):
         """
@@ -665,9 +655,7 @@ def main():
     # Build the gridworld
     print('Building gridworld')
     t_start = time.time()
-    gridworld = MAGridworld(N_agents=2,
-                            Nr=5, 
-                            Nc=5,
+    gridworld = SysAdmin(N_agents=2,
                             slip_p=0.1,
                             initial_state=(4, 0, 4, 4),
                             target_states=[(4, 4, 4, 0)],
