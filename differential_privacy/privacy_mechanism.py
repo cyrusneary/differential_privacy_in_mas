@@ -31,7 +31,7 @@ def build_privacy_mechanism(env, epsilon, k):
                                         seed = env.seed
                                         )
     # empty policy
-    mu = np.zeros([one_agent_gridworld.Ns_local,one_agent_gridworld.Ns_local,one_agent_gridworld.Ns_local])
+    mu = np.zeros([one_agent_gridworld.Ns_local, one_agent_gridworld.Ns_local, one_agent_gridworld.Ns_local])
     
     for s in range(one_agent_gridworld.Ns_local):
         for s_o_t_1 in range(one_agent_gridworld.Ns_local):

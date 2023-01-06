@@ -439,7 +439,7 @@ class SysAdmin(object):
             with the joint state-action pair, and false otherwise.
         """
         team_state_tuple = self.pos_from_index[team_state_ind]
-        team_action_tuple = self.action_tuple_from_index_with_aux(team_action_ind)
+        team_action_tuple = self.action_tuple_from_index_with_aux[team_action_ind]
 
         if (local_state == team_state_tuple[agent_id]
             and team_action_tuple[agent_id] == local_action):
