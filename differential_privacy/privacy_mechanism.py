@@ -31,10 +31,10 @@ def build_privacy_mechanism(env, epsilon, k):
                                         seed = env.seed
                                         )
     # empty policy
-    mu = np.zeros([one_agent_gridworld.Ns_local, one_agent_gridworld.Ns_local, one_agent_gridworld.Ns_local])
+    mu = np.zeros([env.Ns_local, env.Ns_local, env.Ns_local])
     
-    for s in range(one_agent_gridworld.Ns_local):
-        for s_o_t_1 in range(one_agent_gridworld.Ns_local):
+    for s in range(env.Ns_local):
+        for s_o_t_1 in range(env.Ns_local):
             # Calculate the number of feasible states we can transition to from s_o_t_1
             # Need to iterate over each action in the MDP, redundant but more general
             
@@ -45,7 +45,7 @@ def build_privacy_mechanism(env, epsilon, k):
             N_s_o_t_1 = len(possible_transitions)
             tau = 1/((N_s_o_t_1-1)*np.exp(-epsilon/k)+1)
             
-            for s_o_t in range(one_agent_gridworld.Ns_local):
+            for s_o_t in range(env.Ns_local):
                 if s == s_o_t and s in possible_transitions:
                     mu[s,s_o_t_1,s_o_t] = tau
                 elif s != s_o_t and s_o_t in possible_transitions:

@@ -22,7 +22,7 @@ from environments.environment_factory import get_environment
 ##########################
 
 # Set the configuration file to load
-config_file = 'sysadmin_config'
+config_file = 'ma_gridworld_config'
 
 if config_file == 'ma_gridworld_config':
     from experiments.configurations.ma_gridworld_config import exp_logger
