@@ -16,110 +16,111 @@ from optimization_problems.random_policy import build_random_policy_program
 
 from environments.trajectory_runners import empirical_success_rate, empirical_success_rate_private
 
-# from utils.experiment_logger import ExperimentLogger
-# from utils.process_occupancy import *
+import yaml
 
 ##########################
 #### Experimental settings
 ##########################
 
+file_name = os.path.abspath(os.path.join(os.curdir, 'ma_gridworld_config.yml'))
+
+with open(file_name, 'r') as f:
+    exp_logger = yaml.safe_load(f)
+
 curr_datetime = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-exp_name = curr_datetime + '_ma_gridworld_minimum_dependency_0p05'
+exp_name = curr_datetime + '_' + exp_logger['exp_name']
 print(exp_name)
-exp_logger = {
-    'experiment_name' : exp_name,
-    'results' : {},
-    }
+exp_logger['experiment_name'] = exp_name
+exp_logger['results'] = {}
 
-exp_logger['rebuild_gridworld'] = True
+# exp_logger['rebuild_environment'] = True
 
-exp_logger['environment_settings'] = {
-    'N_agents' : 2,
-    'Nr' : 5,
-    'Nc' : 5,
-    'slip_p' : 0.05, # 0.05
-    'initial_state' : (4,0,4,4),
-    'target_states' : [(4, 3, 4, 1)],
-    'dead_states' : [],
-    'lava' : [(0, 0), (0,3), (0,1)],
-    'walls' : [(0,2), (2,2), (4,2)],
-    'seed' : 42,
-}
-
-
-# exp_logger['initial_soln_guess_setup'] = {
-#     'type' : 'random', # reachability, entropy
-#     'settings' : {}
+# exp_logger['environment_settings'] = {
+#     'N_agents' : 2,
+#     'Nr' : 5,
+#     'Nc' : 5,
+#     'slip_p' : 0.05, # 0.05
+#     'initial_state' : (4,0,4,4),
+#     'target_states' : [(4, 3, 4, 1)],
+#     'dead_states' : [],
+#     'lava' : [(0, 0), (0,3), (0,1)],
+#     'walls' : [(0,2), (2,2), (4,2)],
+#     'seed' : 42,
 # }
-exp_logger['initial_soln_guess_setup'] = {
-    'type' : 'entropy', # reachability, entropy
-    'settings' : {
-        'exp_len_coef' : 0.1, 
-        'entropy_coef' : 0.1,
-        'max_length_constr' : 20,
-        }
-}
-exp_logger['optimization_params'] = {
-    'reachability_coef' : 10.0, # 10.0
-    'exp_len_coef' : 0.1, # 0.1
-    'total_corr_coef' : 4.0 # 4.0
-}
 
-exp_logger['empirical_eval_settings'] = {
-    'num_trajectories' : 1000,
-    'max_steps_per_trajectory' : 200,
-    'privacy_parameter' : 1,
-    'adjacency_parameter' : 3,
-    'use_marginalized_policies' : True,
-}
+# # exp_logger['initial_soln_guess_setup'] = {
+# #     'type' : 'random', # reachability, entropy
+# #     'settings' : {}
+# # }
+# exp_logger['initial_soln_guess_setup'] = {
+#     'type' : 'entropy', # reachability, entropy
+#     'settings' : {
+#         'exp_len_coef' : 0.1, 
+#         'entropy_coef' : 0.1,
+#         'max_length_constr' : 20,
+#         }
+# }
+# exp_logger['optimization_params'] = {
+#     'reachability_coef' : 10.0, # 10.0
+#     'exp_len_coef' : 0.1, # 0.1
+#     'total_corr_coef' : 4.0 # 4.0
+# }
+
+# exp_logger['empirical_eval_settings'] = {
+#     'num_trajectories' : 1000,
+#     'max_steps_per_trajectory' : 200,
+#     'privacy_parameter' : 1,
+#     'adjacency_parameter' : 3,
+#     'use_marginalized_policies' : True,
+# }
 
 ###########################################
 #### Construct the experimental environment
 ###########################################
 
 # Build the gridworld from scratch
-if exp_logger['rebuild_gridworld']:
+if exp_logger['rebuild_environment']:
     # Build the gridworld
-    print('Building gridworld')
+    print('Building environment')
     t_start = time.time()
-    gridworld = MAGridworld(**exp_logger['environment_settings'])
-    print('Constructed gridworld in {} seconds'.format(time.time() - t_start))
+    env = MAGridworld(**exp_logger['environment_settings'])
+    print('Constructed environment in {} seconds'.format(time.time() - t_start))
 
     # Sanity check on the transition matrix
-    for s in range(gridworld.Ns_joint):
-        for a in range(gridworld.Na_joint):
-            assert(np.abs(np.sum(gridworld.T[s, a, :]) - 1.0) <= 1e-12)
+    for s in range(env.Ns_joint):
+        for a in range(env.Na_joint):
+            assert(np.abs(np.sum(env.T[s, a, :]) - 1.0) <= 1e-12)
 
     # Save the constructed gridworld
     save_file_str = os.path.join(os.path.abspath(os.path.curdir),
                                     '..', 'environments',
                                     'saved_environments', 'ma_gridworld.pkl')
-    gridworld.save(save_file_str)
+    env.save(save_file_str)
 
 # load the previously constructed gridworld.
 else:
     load_file_str = os.path.join(os.path.abspath(os.path.curdir),
                                     '..', 'environments',
                                     'saved_environments', 'ma_gridworld.pkl')
-    gridworld = MAGridworld(load_file_str=load_file_str)
+    env = MAGridworld(load_file_str=load_file_str)
 
     # Save the gridworld's settings to the logger.
     exp_logger['environment_settings'] = {
-        'N_agents' : gridworld.N_agents,
-        'Nr' : gridworld.Nr,
-        'Nc' : gridworld.Nc,
-        'slip_p' : gridworld.slip_p,
-        'initial_state' : gridworld.initial_state,
-        'target_states' : gridworld.target_states,
-        'dead_states' : gridworld.dead_states,
-        'lava' : gridworld.lava,
-        'walls' : gridworld.walls,
-        'seed' : gridworld.seed,
+        'N_agents' : env.N_agents,
+        'Nr' : env.Nr,
+        'Nc' : env.Nc,
+        'slip_p' : env.slip_p,
+        'initial_state' : env.initial_state,
+        'target_states' : env.target_states,
+        'dead_states' : env.dead_states,
+        'lava' : env.lava,
+        'walls' : env.walls,
+        'seed' : env.seed,
     }
     print('Loaded multiagent gridworld.')
 
 # Construct the corresponding MDP
-mdp = gridworld.build_mdp()
+mdp = env.build_mdp()
 
 #####################################################
 #### Construct the optimziation problems of interest.
@@ -129,14 +130,14 @@ mdp = gridworld.build_mdp()
 # initial guess for the solution.
 if exp_logger['initial_soln_guess_setup']['type'] == 'random':
     # Construct and solve for a random initial policy
-    rand_init = np.random.rand(mdp.Ns, (gridworld.Na_local + 1)**gridworld.N_agents) * 20
+    rand_init = np.random.rand(mdp.Ns, (env.Na_local + 1)**env.N_agents) * 20
     prob_init, vars_init, _ = build_random_policy_program(mdp, 
                                                         rand_init=rand_init,
                                                         N_agents=exp_logger['environment_settings']['N_agents'])
 elif exp_logger['initial_soln_guess_setup']['type'] == 'entropy':
     # Construct and solve for an initial policy maximizing entropy
     # exp_len_coef = 0.0, entropy_coef = 0.01
-    prob_init, vars_init, _ = build_joint_entropy_program(mdp, gridworld.N_agents,
+    prob_init, vars_init, _ = build_joint_entropy_program(mdp, env.N_agents,
                         **exp_logger['initial_soln_guess_setup']['settings'])
 elif exp_logger['initial_soln_guess_setup']['type'] == 'reachability':
     # Construct and solve the reachability LP
@@ -147,18 +148,18 @@ elif exp_logger['initial_soln_guess_setup']['type'] == 'reachability':
 # Construct the minimum-dependency policy synthesis optimization problem
 agent_state_size_list = []
 agent_action_size_list = []
-for agent_id in range(gridworld.N_agents):
-    agent_state_size_list.append(gridworld.Ns_local)
-    agent_action_size_list.append(gridworld.Na_local)
+for agent_id in range(env.N_agents):
+    agent_state_size_list.append(env.Ns_local)
+    agent_action_size_list.append(env.Na_local)
 
 t = time.time()
 prob, vars, params, f_grad, g_grad = \
     build_linearized_program(mdp, 
-        gridworld.N_agents,
+        env.N_agents,
         agent_state_size_list,
         agent_action_size_list,
-        gridworld.check_agent_state_action_with_aux,
-        gridworld.check_agent_state,
+        env.check_agent_state_action_with_aux,
+        env.check_agent_state,
         reachability_coef=exp_logger['optimization_params']['reachability_coef'],
         exp_len_coef=exp_logger['optimization_params']['exp_len_coef'],
         total_corr_coef=exp_logger['optimization_params']['total_corr_coef'])
@@ -175,12 +176,12 @@ print('Solved for initial guess in {} seconds'.format(time.time() - t))
 
 # Save the initial policy and its statistics.
 occupancy_vars_start = process_occupancy_vars(vars_init[0])
-policy_start = policy_from_occupancy_vars(mdp, occupancy_vars_start, gridworld.N_agents)
-success_prob = success_probability_from_occupancy_vars(mdp, occupancy_vars_start, gridworld.N_agents)
+policy_start = policy_from_occupancy_vars(mdp, occupancy_vars_start, env.N_agents)
+success_prob = success_probability_from_occupancy_vars(mdp, occupancy_vars_start, env.N_agents)
 expected_len = expected_len_from_occupancy_vars(mdp, occupancy_vars_start)
-joint_entropy = compute_joint_entropy(mdp, occupancy_vars_start, gridworld.N_agents)
+joint_entropy = compute_joint_entropy(mdp, occupancy_vars_start, env.N_agents)
 total_corr = compute_total_correlation(mdp,
-                            N_agents=gridworld.N_agents,
+                            N_agents=env.N_agents,
                             agent_state_size_list=agent_state_size_list,
                             agent_action_size_list=agent_action_size_list,
                             f_grad=f_grad,
@@ -225,12 +226,12 @@ print('Solved for maximum reachability policy in {} seconds'.format(time.time() 
 
 # Save the max reachability policy and its statistics.
 occupancy_vars_reach = process_occupancy_vars(vars[0])
-policy_reach = policy_from_occupancy_vars(mdp, occupancy_vars_reach, gridworld.N_agents)
-success_prob_reach = success_probability_from_occupancy_vars(mdp, occupancy_vars_reach, gridworld.N_agents)
+policy_reach = policy_from_occupancy_vars(mdp, occupancy_vars_reach, env.N_agents)
+success_prob_reach = success_probability_from_occupancy_vars(mdp, occupancy_vars_reach, env.N_agents)
 expected_len_reach = expected_len_from_occupancy_vars(mdp, occupancy_vars_reach)
-joint_entropy_reach = compute_joint_entropy(mdp, occupancy_vars_reach, gridworld.N_agents)
+joint_entropy_reach = compute_joint_entropy(mdp, occupancy_vars_reach, env.N_agents)
 total_corr_reach = compute_total_correlation(mdp,
-                            N_agents=gridworld.N_agents,
+                            N_agents=env.N_agents,
                             agent_state_size_list=agent_state_size_list,
                             agent_action_size_list=agent_action_size_list,
                             f_grad=f_grad,
@@ -239,7 +240,7 @@ total_corr_reach = compute_total_correlation(mdp,
 
 # Empirically test the success rate during imaginary play.
 empirical_rate_reach = empirical_success_rate(
-    gridworld,
+    env,
     policy_reach,
     use_imaginary_play=True,
     num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
@@ -247,11 +248,11 @@ empirical_rate_reach = empirical_success_rate(
 )
 
 if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
-    marginalized_policies = marginalize_policy(policy_reach, mdp, gridworld.N_agents)
-    policy_kl = kl_divergence_joint_and_marginalized_policies(policy_reach, marginalized_policies, mdp, gridworld.N_agents)
+    marginalized_policies = marginalize_policy(policy_reach, mdp, env.N_agents)
+    policy_kl = kl_divergence_joint_and_marginalized_policies(policy_reach, marginalized_policies, mdp, env.N_agents)
     
     private_rate_reach = empirical_success_rate_private(
-        gridworld,
+        env,
         marginalized_policies,
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
         max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
@@ -261,7 +262,7 @@ if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
     )
 else:
     private_rate_reach = empirical_success_rate_private(
-            gridworld,
+            env,
             policy_reach,
             num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
             max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
@@ -317,12 +318,12 @@ for i in range(100):
 
     # Compute the results of the current iteration
     occupancy_vars = process_occupancy_vars(vars[0])
-    policy = policy_from_occupancy_vars(mdp, occupancy_vars, gridworld.N_agents)
-    success_prob = success_probability_from_occupancy_vars(mdp, occupancy_vars, gridworld.N_agents)
+    policy = policy_from_occupancy_vars(mdp, occupancy_vars, env.N_agents)
+    success_prob = success_probability_from_occupancy_vars(mdp, occupancy_vars, env.N_agents)
     expected_len = expected_len_from_occupancy_vars(mdp, occupancy_vars)
-    joint_entropy = compute_joint_entropy(mdp, occupancy_vars, gridworld.N_agents)
+    joint_entropy = compute_joint_entropy(mdp, occupancy_vars, env.N_agents)
     total_corr = compute_total_correlation(mdp,
-                                N_agents=gridworld.N_agents,
+                                N_agents=env.N_agents,
                                 agent_state_size_list=agent_state_size_list,
                                 agent_action_size_list=agent_action_size_list,
                                 f_grad=f_grad,
@@ -331,7 +332,7 @@ for i in range(100):
     
     # Empirically test the success rate during imaginary play.
     empirical_rate = empirical_success_rate(
-        gridworld,
+        env,
         policy,
         use_imaginary_play=True,
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
@@ -339,11 +340,11 @@ for i in range(100):
     )
     
     if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
-        marginalized_policies = marginalize_policy(policy, mdp, gridworld.N_agents)
-        policy_kl = kl_divergence_joint_and_marginalized_policies(policy, marginalized_policies, mdp, gridworld.N_agents)
+        marginalized_policies = marginalize_policy(policy, mdp, env.N_agents)
+        policy_kl = kl_divergence_joint_and_marginalized_policies(policy, marginalized_policies, mdp, env.N_agents)
         
         private_rate = empirical_success_rate_private(
-            gridworld,
+            env,
             marginalized_policies,
             num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
             max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
@@ -353,7 +354,7 @@ for i in range(100):
         )
     else:
         private_rate = empirical_success_rate_private(
-            gridworld,
+            env,
             policy,
             num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
             max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
