@@ -7,6 +7,7 @@ import pickle
 sys.path.append('../')
 
 from environments.ma_gridworld import MAGridworld
+from environments.sysadmin import SysAdmin
 
 from optimization_problems.minimum_dependency_policy import *
 from optimization_problems.max_entropy_policy import build_joint_entropy_program
