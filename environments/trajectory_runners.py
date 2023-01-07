@@ -468,8 +468,14 @@ def empirical_success_rate_private(env,
         at which the policy was observed to reach the target set.
     """
     
-    #Construct a privacy mechanism for each agent, everyone has the same epsilon for now
-    mu = build_privacy_mechanism(env, epsilon=epsilon, k=k)  
+    #Construct a privacy mechanism for each agent, 
+    # everyone has the same epsilon for now.
+    # Assuming the local transition matrices are the same for all agents,
+    # grab the transition matrix for the first agent.
+    T_local = env.local_transition_matrices[0]
+    
+    # Build the privacy mechanism (currently implemented as being identical for all agents)
+    mu = build_privacy_mechanism(T_local, epsilon=epsilon, k=k)  
 
     success_count = 0
     for t_ind in range(num_trajectories):

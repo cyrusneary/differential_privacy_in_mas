@@ -257,7 +257,14 @@ class MAGridworld(object):
         action moves into a wall, then all of the probability is 
         assigned to the available adjacent states.
         """
+        # Initialize the joint transition matrix
         self.T = np.zeros((self.Ns_joint, self.Na_joint, self.Ns_joint))
+
+        # Initialize the local transition matrices for each agent.
+        self.local_transition_matrices = {}
+        for agent_id in range(self.N_agents):
+            self.local_transition_matrices[agent_id] = \
+                np.zeros((self.Ns_local, self.Na_local, self.Ns_local))
 
         for s in range(self.Ns_joint):
 
@@ -331,6 +338,17 @@ class MAGridworld(object):
                         for key, val in agent_next_states[agent_id].items():
                             local_trans_funcs[agent_id][a][val] \
                                 = 1.0 / num_slips
+                                
+                    # Construct the local transition matrices for each agent
+                    for next_state, prob_val in local_trans_funcs[agent_id][a].items():
+                        current_local_state_index = \
+                            self.local_index_from_pos[(state_r, state_c)]
+                        next_local_state_index = \
+                            self.local_index_from_pos[next_state]
+                        self.local_transition_matrices[agent_id]\
+                            [current_local_state_index, a, next_local_state_index] = \
+                            prob_val
+                            
             # Now that we have the local transition functions of all 
             # the agents, construct the joint transition function using
             # the assumption that all local transition probabilities
