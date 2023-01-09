@@ -22,7 +22,7 @@ from environments.environment_factory import get_environment
 ##########################
 
 # Set the configuration file to load
-config_file = 'ma_gridworld_config'
+config_file = 'sysadmin_config'
 
 if config_file == 'ma_gridworld_config':
     from experiments.configurations.ma_gridworld_config import exp_logger
@@ -255,7 +255,7 @@ x_last = x_start
 for i in range(100):
     params[3].value = x_last
     # prob.solve(verbose=True, solver='ECOS') 
-    prob.solve(verbose=True, solver='MOSEK')
+    prob.solve(verbose=False, solver='MOSEK')
 
     # Compute the results of the current iteration
     occupancy_vars = process_occupancy_vars(vars[0])
@@ -325,10 +325,10 @@ for i in range(100):
         print('KL divergence between joint and marginalized policies: {}'.format(policy_kl))
     
     # Print the results to the terminal
-    print('[{}]: Success probability: {}, \
-            total correlation: {}'.format(
+    print('\n [{}]: Success probability: {}, Expected length: {}, total correlation: {}'.format(
                                     i, 
                                     exp_logger['results'][i]['success_prob'],
+                                    exp_logger['results'][i]['expected_len'],
                                     exp_logger['results'][i]['total_corr']
                                 )
         )

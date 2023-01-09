@@ -72,8 +72,12 @@ def run_trajectory_imaginary(env,
 
     s_tuple = ()
     for agent_id in range(env.N_agents):
-        s_tuple = (s_tuple
-                    + agent_s_tuples[agent_id][2*agent_id:(2*agent_id+2)])
+        if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
+            s_tuple = s_tuple \
+                + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
+        else:
+            s_tuple = s_tuple \
+                + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
     s = env.index_from_pos[s_tuple]
     traj.append(s)
 
@@ -104,8 +108,12 @@ def run_trajectory_imaginary(env,
         # Construct the true team next state
         s_tuple = ()
         for agent_id in range(env.N_agents):
-            s_tuple = (s_tuple
-                    + agent_s_tuples[agent_id][2*agent_id:(2*agent_id+2)])
+            if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
+                s_tuple = s_tuple \
+                    + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
+            else:
+                s_tuple = s_tuple \
+                    + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
         s = env.index_from_pos[s_tuple]
         traj.append(s)
         
@@ -154,8 +162,12 @@ def run_trajectory_intermittent(env,
     
     s_tuple = ()
     for agent_id in range(env.N_agents):
-        s_tuple = (s_tuple
-                    + agent_s_tuples[agent_id][2*agent_id:(2*agent_id+2)])
+        if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
+            s_tuple = s_tuple \
+                + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
+        else:
+            s_tuple = s_tuple \
+                + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
     s = env.index_from_pos[s_tuple]
     traj.append(s)
 
@@ -184,8 +196,12 @@ def run_trajectory_intermittent(env,
             # Construct the true team next state
             s_tuple = ()
             for agent_id in range(env.N_agents):
-                s_tuple = (s_tuple
-                    + agent_s_tuples[agent_id][2*agent_id:(2*agent_id+2)])
+                if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
+                    s_tuple = s_tuple \
+                        + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
+                else:
+                    s_tuple = s_tuple \
+                        + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
             s = env.index_from_pos[s_tuple]
             
         else:
@@ -210,8 +226,12 @@ def run_trajectory_intermittent(env,
             # Construct the true team next state
             s_tuple = ()
             for agent_id in range(env.N_agents):
-                s_tuple = (s_tuple
-                    + agent_s_tuples[agent_id][2*agent_id:(2*agent_id+2)])
+                if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
+                    s_tuple = s_tuple \
+                        + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
+                else:
+                    s_tuple = s_tuple \
+                        + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
             s = env.index_from_pos[s_tuple]
 
         traj.append(s)
@@ -261,6 +281,11 @@ def run_trajectory_private(
         List of indexes of states. 
     """   
     
+    if use_marginalized_policies:
+        assert (isinstance(policy, list) and len(policy) == env.N_agents)
+    else:
+        assert (isinstance(policy, np.ndarray) and policy.shape == (env.Ns_joint, env.Na_joint, env.Ns_joint))
+    
     traj = []
     agent_s_tuples = {} # This is where we will store the private copy of everyones state
     agent_s_inds = {} #private indexes
@@ -279,15 +304,19 @@ def run_trajectory_private(
     
     s_tuple = ()
     for agent_id in range(env.N_agents):
-        s_tuple = (s_tuple
-                    + agent_s_tuples[agent_id][2*agent_id:(2*agent_id+2)])
+        if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
+            s_tuple = s_tuple \
+                + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
+        else:
+            s_tuple = s_tuple \
+                + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
     s = env.index_from_pos[s_tuple]
     traj.append(s)
     
     #assume initial condition is known
     last_private_state = {}
     for agent_id in range(env.N_agents):
-        last_private_state[agent_id] = env.local_index_from_pos[s_tuple[2*agent_id:(2*agent_id+2)]]
+        last_private_state[agent_id] = env.local_index_from_pos[s_tuple[env.agent_tuple_slice(agent_id)]]
 
     while ((s not in env.target_indexes) 
             and (s not in env.dead_indexes)
@@ -297,7 +326,7 @@ def run_trajectory_private(
         private_states = {}
         for agent_id in range(env.N_agents):
             # Convert this agents state to its local index, i.e., 1...Nr*Nc
-            true_state = env.local_index_from_pos[s_tuple[2*agent_id:(2*agent_id+2)]]
+            true_state = env.local_index_from_pos[s_tuple[env.agent_tuple_slice(agent_id)]]
             
             # Generate private state
             private_states[agent_id] = np.random.choice(np.arange(env.Ns_local), p=mu[true_state, last_private_state[agent_id], :])
@@ -309,9 +338,17 @@ def run_trajectory_private(
             agent_i_s_hat = ()
             for i in range(env.N_agents):
                 if i==agent_id:
-                    agent_i_s_hat=(agent_i_s_hat + s_tuple[2*agent_id:(2*agent_id+2)]) # Use your own real state
+                    if type(s_tuple[env.agent_tuple_slice(agent_id)]) is tuple:
+                        agent_i_s_hat=(agent_i_s_hat + s_tuple[env.agent_tuple_slice(agent_id)])
+                    else:
+                        agent_i_s_hat=(agent_i_s_hat + tuple([s_tuple[env.agent_tuple_slice(agent_id)]]))
+                    # agent_i_s_hat=(agent_i_s_hat + s_tuple[env.agent_tuple_slice(agent_id)]) # Use your own real state
                 else:
-                    agent_i_s_hat=(agent_i_s_hat + env.local_pos_from_index[private_states[i]]) # use everyone elses private data
+                    if type(env.local_pos_from_index[private_states[i]]) is tuple:
+                        agent_i_s_hat=(agent_i_s_hat + env.local_pos_from_index[private_states[i]])
+                    else:
+                        agent_i_s_hat=(agent_i_s_hat + tuple([env.local_pos_from_index[private_states[i]]])) # use everyone elses private data
+                    # agent_i_s_hat=(agent_i_s_hat + env.local_pos_from_index[private_states[i]]) 
             
             # Get action disctribution based on the private information
             agent_i_s_hat_idx = env.index_from_pos[agent_i_s_hat]

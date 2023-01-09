@@ -170,6 +170,13 @@ class MAGridworld(object):
         self._construct_state_space()
         self._construct_action_space()
 
+    def agent_tuple_slice(self, agent_id):
+        """
+        Return an array slice representing the agent's indexing within the 
+        tuple representation of the team's state.
+        """
+        return slice(2*agent_id, (2*agent_id+2))
+
     def _construct_state_space(self):
         """
         Build two maps providing state indexes from 

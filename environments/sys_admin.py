@@ -172,6 +172,13 @@ class SysAdmin(object):
         self._construct_state_space()
         self._construct_action_space()
 
+    def agent_tuple_slice(self, agent_id):
+        """
+        Return an array slice representing the agent's indexing within the 
+        tuple representation of the team's state.
+        """
+        return agent_id
+
     # def index_from_state_tuple(self, state_tuple):
     #     """
     #     Return the joint state index from a tuple of local state indexes.
@@ -246,6 +253,17 @@ class SysAdmin(object):
         for i in range(self.Ns_joint):
             self.pos_from_index[i] = np.unravel_index(i, self.team_state_tuple_shape)
             self.index_from_pos[self.pos_from_index[i]] = i
+            
+        # Local state index from alternate state representation.
+        # In this case, the local state index is the same as the joint state index.
+        # Keep this part of the implementation for external functions which will 
+        # try and access this field.
+        self.local_index_from_pos = {}
+        self.local_pos_from_index = {}
+
+        for i in range(self.Ns_local):
+            self.local_pos_from_index[i] = i
+            self.local_index_from_pos[i] = i
 
     def _construct_action_space(self):
         """
@@ -286,14 +304,16 @@ class SysAdmin(object):
         action moves into a wall, then all of the probability is 
         assigned to the available adjacent states.
         """
+        # Initialize the joint transition matrix
         self.T = np.zeros((self.Ns_joint, self.Na_joint, self.Ns_joint))
 
-        for s in range(self.Ns_joint):
+        # Initialize the local transition matrices for each agent.
+        self.local_transition_matrices = {}
+        for agent_id in range(self.N_agents):
+            self.local_transition_matrices[agent_id] = \
+                np.zeros((self.Ns_local, self.Na_local, self.Ns_local))
 
-            # # Check if the state is absorbing before assigning 
-            # # any probability values.
-            # if (s in self.target_indexes) or (s in self.dead_indexes):
-            #     continue
+        for s in range(self.Ns_joint):
 
             # Get the tuple of row and column positions of all agents
             pos = self.pos_from_index[s] 
@@ -303,6 +323,8 @@ class SysAdmin(object):
             # transitioning to those states.
             local_trans_funcs = {}
             for agent_id in range(self.N_agents):
+
+                local_state = pos[agent_id]
 
                 # dictionary containing local transition functions mapping
                 # local_trans_funcs[agent_id][local_action][local_next_state] 
@@ -318,18 +340,26 @@ class SysAdmin(object):
                 # action 0 : wait
                 # action 1 : repair
 
-                if pos[agent_id] == 0: # healthy
-                    local_trans_funcs[agent_id][0] = {0: 1 - self.p_unhealthy, 1: self.p_unhealthy, 2: 0.0, 3: 0.0}
-                    local_trans_funcs[agent_id][1] = {0: 0.0, 1: 0.0, 2: 1.0, 3: 0.0}
-                if pos[agent_id] == 1: #unhealthy
-                    local_trans_funcs[agent_id][0] = {0: 0.0, 1: 1 - self.p_down, 2: 0.0, 3: self.p_down}
-                    local_trans_funcs[agent_id][1] = {0: 0.0, 1: 0.0, 2: 1.0, 3: 0.0}
-                if pos[agent_id] == 2: #repairing
-                    local_trans_funcs[agent_id][0] = {0: self.p_repair, 1: 0.0, 2: 1 - self.p_repair, 3: 0.0}
-                    local_trans_funcs[agent_id][1] = {0: 0.0, 1: 0.0, 2: 1.0, 3: 0.0}
-                if pos[agent_id] == 3: #down
-                    local_trans_funcs[agent_id][0] = {0: 0.0, 1: 0.0, 2: 0.0, 3: 1.0}
-                    local_trans_funcs[agent_id][1] = {0: 0.0, 1: 0.0, 2: 1.0, 3: 0.0}
+                if local_state == 0:
+                    self.local_transition_matrices[agent_id][local_state, 0, :] = \
+                        [1 - self.p_unhealthy, self.p_unhealthy, 0.0, 0.0]
+                    self.local_transition_matrices[agent_id][local_state, 1, :] = \
+                        [0.0, 0.0, 1.0, 0.0]
+                if local_state == 1:
+                    self.local_transition_matrices[agent_id][local_state, 0, :] = \
+                        [0.0, 1 - self.p_down, 0.0, self.p_down]
+                    self.local_transition_matrices[agent_id][local_state, 1, :] = \
+                        [0.0, 0.0, 1.0, 0.0]
+                if local_state == 2:
+                    self.local_transition_matrices[agent_id][local_state, 0, :] = \
+                        [self.p_repair, 0.0, 1 - self.p_repair, 0.0]
+                    self.local_transition_matrices[agent_id][local_state, 1, :] = \
+                        [0.0, 0.0, 1.0, 0.0]
+                if local_state == 3:
+                    self.local_transition_matrices[agent_id][local_state, 0, :] = \
+                        [0.0, 0.0, 0.0, 1.0]
+                    self.local_transition_matrices[agent_id][local_state, 1, :] = \
+                        [0.0, 0.0, 1.0, 0.0]
 
             # Now that we have the local transition functions of all 
             # the agents, construct the joint transition function using
@@ -344,16 +374,12 @@ class SysAdmin(object):
                     prob_transition = 1.0
 
                     for agent_id in range(self.N_agents): 
+                        local_state = pos[agent_id]
                         local_action = action_tuple[agent_id]
-                        local_state = next_s_tuple[agent_id]
+                        local_next_state = next_s_tuple[agent_id]
 
-                        if (local_state in local_trans_funcs[agent_id]
-                                                [local_action].keys()):
-                            prob_local_trans = \
-                                local_trans_funcs[agent_id][local_action][local_state]
-                        else:
-                            prob_transition = 0.0
-                            break
+                        prob_local_trans = \
+                            self.local_transition_matrices[agent_id][local_state, local_action, local_next_state]
 
                         prob_transition = prob_transition * prob_local_trans
 
