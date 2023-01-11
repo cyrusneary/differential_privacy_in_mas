@@ -236,10 +236,12 @@ print(('Success probability: {}, \n \
         Imaginary Play success prob: {}, \n \
         Private play success prob: {}, \n \
         expected length: {}, \n \
+        total correlation: {}, \n \
         joint entropy: {}'.format(success_prob_reach, 
                                   empirical_rate_reach,
                                   private_rate_reach,
                                     expected_len_reach, 
+                                    total_corr_reach,
                                     joint_entropy_reach)))
 
 # Set the parameters back to the original values.
@@ -339,6 +341,8 @@ for i in range(100):
         exp_logger['results'][i]['empirical_imag_success_rate']))
     
     print('TC: {}'.format(vars[1].value))
+
+    print('KL divergence with marginalized policies: {}'.format(policy_kl))
     
     print('||x - x_last||: {}'.format(
         np.linalg.norm(

@@ -17,6 +17,7 @@ tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
 # save_file_name = '2022-12-21-10-14-18_ma_gridworld_total_corr_add_end_state_0p05.pkl'
 save_file_name = '2022-12-22-19-05-27_ma_gridworld_minimum_dependency_0p05.pkl'
+save_file_name = '2023-01-10-17-40-25_sys_admin_minimum_dependency.pkl'
 save_str = os.path.join(base_path, save_file_name)
 
 with open(save_str, 'rb') as f:

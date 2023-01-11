@@ -64,7 +64,7 @@ class SysAdmin(object):
             self.Ns_joint = (self.Ns_local)**self.N_agents
 
             # The team is successful when all agents are working (in either a healthy or unhealthy state).
-            self.local_target_states = [0, 1] 
+            self.local_target_states = [0] 
 
             self.allowable_simultaneous_repair = allowable_simultaneous_repair
             self.allowable_simultaneous_down = allowable_simultaneous_down

@@ -8,6 +8,7 @@ import tikzplotlib
 import pickle
 
 from environments.ma_gridworld import MAGridworld
+from environments.sys_admin import SysAdmin
 from environments.trajectory_runners import empirical_success_rate_private
 
 from optimization_problems.minimum_dependency_policy import \
@@ -27,6 +28,7 @@ base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'r
 save_file_name = '2022-12-27-18-59-30_ma_gridworld_minimum_dependency_0p05.pkl'
 save_file_name = '2023-01-04-17-25-06_ma_gridworld_minimum_dependency_0p05.pkl'
 save_file_name = '2023-01-07-12-48-55_ma_gridworld_minimum_dependency_0p05.pkl'
+save_file_name = '2023-01-10-17-40-25_sys_admin_minimum_dependency.pkl'
 save_str = os.path.join(base_path, save_file_name)
 
 with open(save_str, 'rb') as f:
@@ -35,8 +37,13 @@ with open(save_str, 'rb') as f:
 ##### Create the gridworld from the logged parameters
 
 t_start = time.time()
-gridworld = MAGridworld(**exp_logger['environment_settings'])
-print('Constructed the gridworld in {} seconds.'.format(time.time() - t_start))
+
+if exp_logger['environment_type'] == 'sys_admin':
+    pass
+
+elif exp_logger['environment_type'] == 'ma_gridworld':
+    gridworld = MAGridworld(**exp_logger['environment_settings'])
+    print('Constructed the gridworld in {} seconds.'.format(time.time() - t_start))
 
 epsilon_list = np.linspace(0.01, 10.0, num=11)
 md_success_probs = []
