@@ -254,7 +254,7 @@ params[2].value = exp_logger['optimization_params']['total_corr_coef']
 ########################################################################################
 
 x_last = x_start
-for i in range(100):
+for i in range(20):
     params[3].value = x_last
     # prob.solve(verbose=True, solver='ECOS') 
     prob.solve(verbose=False, solver='MOSEK')

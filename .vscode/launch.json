@@ -8,10 +8,10 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/experiments/synthesize_minimum_dependency_policy.py",
+            "program": "${workspaceFolder}/plotting/private_success_vs_privacy_parameter.py",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "cwd": "${workspaceFolder}/experiments",
+            "cwd": "${workspaceFolder}/plotting",
         }
     ]
 }

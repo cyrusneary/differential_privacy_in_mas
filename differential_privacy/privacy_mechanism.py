@@ -28,10 +28,13 @@ def build_privacy_mechanism(T_local : np.ndarray, epsilon : float, k : int):
             # Need to iterate over each action in the MDP, redundant but more general
             
             possible_transitions = set() # all the states we can transition to
+
             for row in T_local[s_o_t_1,:,:]:
                 # Add the index of all states we can transition to
                 [possible_transitions.add(s_ ) for s_ in np.where(row!=0)[0]] 
+                
             N_s_o_t_1 = len(possible_transitions)
+
             tau = 1/((N_s_o_t_1-1)*np.exp(-epsilon/k)+1)
             
             for s_o_t in range(Ns_local):

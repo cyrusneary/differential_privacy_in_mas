@@ -284,7 +284,7 @@ def run_trajectory_private(
     if use_marginalized_policies:
         assert (isinstance(policy, list) and len(policy) == env.N_agents)
     else:
-        assert (isinstance(policy, np.ndarray) and policy.shape == (env.Ns_joint, env.Na_joint, env.Ns_joint))
+        assert (isinstance(policy, np.ndarray) and policy.shape == (env.Ns_joint, env.Na_joint))
     
     traj = []
     agent_s_tuples = {} # This is where we will store the private copy of everyones state

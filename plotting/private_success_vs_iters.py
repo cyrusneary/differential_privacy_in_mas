@@ -12,7 +12,7 @@ import pickle
 fontsize = 12
 linewidth = 3
 markersize = 15
-num_data_points = 20
+num_data_points = 80
 
 tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 
@@ -20,9 +20,11 @@ base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'r
 # save_file_name = '2022-12-23-12-02-14_ma_gridworld_minimum_dependency_0p05.pkl'
 # save_file_name = '2022-12-27-18-59-30_ma_gridworld_minimum_dependency_0p05.pkl'
 # save_file_name = '2023-01-05-21-30-29_ma_gridworld_minimum_dependency_0p05.pkl'
-save_file_name = '2023-01-05-22-05-14_ma_gridworld_minimum_dependency_0p05.pkl'
-save_file_name = '2023-01-07-12-48-55_ma_gridworld_minimum_dependency_0p05.pkl'
-save_file_name = '2023-01-10-17-40-25_sys_admin_minimum_dependency.pkl'
+# save_file_name = '2023-01-05-22-05-14_ma_gridworld_minimum_dependency_0p05.pkl'
+# save_file_name = '2023-01-07-12-48-55_ma_gridworld_minimum_dependency_0p05.pkl'
+# save_file_name = '2023-01-10-17-40-25_sys_admin_minimum_dependency.pkl'
+# save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl'
+save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl'
 save_str = os.path.join(base_path, save_file_name)
 
 with open(save_str, 'rb') as f:
@@ -57,22 +59,28 @@ ax.plot(iters, success_prob_reachability,
             label='No privacy -- Baseline Policy')
 
 ax.plot(iters, empirical_private,
-            color='blue', linestyle='--', linewidth=linewidth,
+            color='blue', linestyle='-', linewidth=linewidth,
             label=r'Privatized Policy Execution ($\epsilon = 1$) -- Minimal-Dependency Policy')
 ax.plot(iters, empirical_private_reachability,
-            color='red', linestyle='--', linewidth=linewidth,
+            color='red', linestyle='-', linewidth=linewidth,
             label='Privatized Policy Execution ($\epsilon = 1$) -- Baseline Policy')
 
 # ax.plot(iters, bound,
 #             color='black', 
 #             label='Theoretical Lower Bound on Success Probability of Privatized Policy Execution')
 
-ax.grid()
-ax.set_ylabel('Probability of Team Success', fontsize=fontsize)
-ax.set_xlabel('Number of Iterations of Policy Synthesis Algorithm', fontsize=fontsize)
-plt.legend(fontsize=fontsize)
+print('MD Policy no privacy: {}'.format(np.max(success_prob)))
+print('MD Policy with privacy: {}'.format(np.max(empirical_private)))
 
-# tikz_file_str = os.path.join(tikz_save_path, 'success_prob_vs_iters_three_agent_aux_action.tex')
-# tikzplotlib.save(tikz_file_str)
+print('baseline policy no privacy: {}'.format(np.max(success_prob_reachability)))
+print('baseline policy with privacy: {}'.format(np.max(empirical_private_reachability)))
 
-plt.show()
+# ax.grid()
+# ax.set_ylabel('Probability of Team Success', fontsize=fontsize)
+# ax.set_xlabel('Number of Iterations of Policy Synthesis Algorithm', fontsize=fontsize)
+# plt.legend(fontsize=fontsize)
+
+tikz_file_str = os.path.join(tikz_save_path, 'success_prob_vs_iters_two_agent_navigation.tex')
+tikzplotlib.save(tikz_file_str)
+
+# plt.show()
