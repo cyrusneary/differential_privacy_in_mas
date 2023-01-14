@@ -8,7 +8,7 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/plotting/private_success_vs_privacy_parameter.py",
+            "program": "${workspaceFolder}/plotting/sys_admin_bar_chart.py",
             "console": "integratedTerminal",
             "justMyCode": false,
             "cwd": "${workspaceFolder}/plotting",
