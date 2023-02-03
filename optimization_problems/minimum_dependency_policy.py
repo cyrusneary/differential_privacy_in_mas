@@ -357,8 +357,8 @@ def marginalize_policy(policy : np.ndarray, mdp : MDP, N_agents : int):
     
     Returns
     -------
-        local_policies : list of ndarray
-            Each element of the list is a policy for a single agent.
+    local_policies : list of ndarray
+        Each element of the list is a policy for a single agent.
     """
     local_policies = []
     
@@ -379,6 +379,56 @@ def marginalize_policy(policy : np.ndarray, mdp : MDP, N_agents : int):
         local_policies.append(local_policy)
         
     return local_policies
+
+# def acyclic_marginalized_policies_from_occupancy_vars(mdp : MDP, x : np.ndarray, N_agents : int, dependency_graph : nx.DiGraph):
+#     """
+#     Build the marginalized local policies with acyclic dependencies from the occupancy measure values.
+
+#     Parameters
+#     ----------
+#     mdp :
+#         An object representing the MDP on which the reachability problem
+#         is to be solved.
+#     x :
+#         Array built such that x[s,a] represents the occupancy 
+#         measure of state-action pair (s,a).
+#     N_agents :
+#         The number of agents.
+
+#     Returns
+#     -------
+#     local_policies : list of ndarray
+#         Each element of the list is a policy for a single agent.
+#     """
+#     Na_local = round(pow(mdp.Na, 1/N_agents))
+#     Na = (Na_local + 1) ** N_agents
+
+#     action_shape = tuple([Na_local + 1 for i in range(N_agents)])
+    
+#     local_auxiliary_action_index = Na_local
+
+#     true_actions = []
+#     partially_auxiliary_actions = []
+#     all_auxiliary_actions = []
+#     for a_joint in range(Na):
+#         a_tuple = np.unravel_index(a_joint, action_shape)
+#         if np.sum(np.array(a_tuple) == local_auxiliary_action_index) == 0:
+#             true_actions.append(a_joint)
+#         elif np.sum(np.array(a_tuple) == local_auxiliary_action_index) == N_agents:
+#             all_auxiliary_actions.append(a_joint)
+#         else:
+#             partially_auxiliary_actions.append(a_joint)
+
+#     x_mod = np.copy(x)[:, true_actions]
+
+#     policy = np.zeros((mdp.Ns, mdp.Na))
+#     for s in range(mdp.Ns):
+#         for a in range(mdp.Na):
+#             if not (np.sum(x_mod[s,:]) == 0.0):
+#                 policy[s,a] = x_mod[s, a] / np.sum(x_mod[s, :])
+#             else:
+#                 policy[s,a] = 1.0 / len(x_mod[s,:])
+#     return policy
 
 def compute_product_policy(
         marginalized_policies : list, 
