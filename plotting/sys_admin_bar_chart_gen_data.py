@@ -54,7 +54,7 @@ N_agents = exp_loggers[list(exp_loggers.keys())[0]]['environment_settings']['N_a
 epsilon_list = [0.1, 1.0, 10.0]
 
 num_trajectories = 1000
-max_steps_per_trajectory = 200
+max_steps_per_trajectory = 1000
 
 for trial in tqdm(exp_loggers.keys()):
     
