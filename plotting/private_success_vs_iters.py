@@ -12,13 +12,14 @@ import pickle
 fontsize = 12
 linewidth = 3
 markersize = 15
-num_data_points = 80
+num_data_points = 20
 
 tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
 
-save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl'
+save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl' # In the initial submission to IJCAI
+save_file_name = '2023-02-05-17-14-45_ma_gridworld_minimum_dependency_0p05.pkl'
 
 save_str = os.path.join(base_path, save_file_name)
 
@@ -76,6 +77,6 @@ print('baseline policy with privacy: {}'.format(np.max(empirical_private_reachab
 # plt.legend(fontsize=fontsize)
 
 tikz_file_str = os.path.join(tikz_save_path, 'success_prob_vs_iters_two_agent_navigation.tex')
-tikzplotlib.save(tikz_file_str)
+# tikzplotlib.save(tikz_file_str)
 
-# plt.show()
+plt.show()

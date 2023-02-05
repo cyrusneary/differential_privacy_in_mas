@@ -17,12 +17,14 @@ from optimization_problems.random_policy import build_random_policy_program
 from environments.trajectory_runners import empirical_success_rate, empirical_success_rate_private
 from environments.environment_factory import get_environment
 
+from markov_decision_process.policies import JointPolicy, LocalPolicies
+
 ##########################
 #### Experimental settings
 ##########################
 
 # Set the configuration file to load
-config_file = 'sysadmin_config'
+config_file = 'ma_gridworld_config'
 
 if config_file == 'ma_gridworld_config':
     from experiments.configurations.ma_gridworld_config import exp_logger
@@ -117,7 +119,7 @@ print('Solved for initial guess in {} seconds'.format(time.time() - t))
 
 # Save the initial policy and its statistics.
 occupancy_vars_start = process_occupancy_vars(vars_init[0])
-policy_start = policy_from_occupancy_vars(mdp, occupancy_vars_start, env.N_agents)
+policy_start = JointPolicy(mdp, env.N_agents, occupancy_vars_start)
 success_prob = success_probability_from_occupancy_vars(mdp, occupancy_vars_start, env.N_agents)
 expected_len = expected_len_from_occupancy_vars(mdp, occupancy_vars_start)
 joint_entropy = compute_joint_entropy(mdp, occupancy_vars_start, env.N_agents)
@@ -167,7 +169,7 @@ print('Solved for maximum reachability policy in {} seconds'.format(time.time() 
 
 # Save the max reachability policy and its statistics.
 occupancy_vars_reach = process_occupancy_vars(vars[0])
-policy_reach = policy_from_occupancy_vars(mdp, occupancy_vars_reach, env.N_agents)
+policy_reach = JointPolicy(mdp, env.N_agents, occupancy_vars_reach)
 success_prob_reach = success_probability_from_occupancy_vars(mdp, occupancy_vars_reach, env.N_agents)
 expected_len_reach = expected_len_from_occupancy_vars(mdp, occupancy_vars_reach)
 joint_entropy_reach = compute_joint_entropy(mdp, occupancy_vars_reach, env.N_agents)
@@ -179,43 +181,37 @@ total_corr_reach = compute_total_correlation(mdp,
                             g_grad=g_grad,
                             x=occupancy_vars_reach)
 
-# Empirically test the success rate during imaginary play.
+# Empirically test the success rate during truthful communication.
 empirical_rate_reach = empirical_success_rate(
     env,
     policy_reach,
-    use_imaginary_play=True,
     num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
     max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
 )
 
-if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
-    marginalized_policies = marginalize_policy(policy_reach, mdp, env.N_agents)
-    policy_kl = kl_divergence_joint_and_marginalized_policies(policy_reach, marginalized_policies, mdp, env.N_agents)
-    
-    private_rate_reach = empirical_success_rate_private(
+# Get the marginalized policies to test private communication.
+if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
+    eval_policy = LocalPolicies(mdp, env.N_agents, x=occupancy_vars_reach)
+    policy_kl = eval_policy.kl_divergence_joint_and_marginalized_policies(policy_reach)
+elif exp_logger['empirical_eval_settings']['policy_type'] == 'joint':
+    eval_policy = policy_reach
+  
+# Empirically test the success rate during private communication.  
+private_rate_reach = empirical_success_rate_private(
         env,
-        marginalized_policies,
+        eval_policy,
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
         max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
         epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
         k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
-        use_marginalized_policies=True,
+        policy_type=exp_logger['empirical_eval_settings']['policy_type'],
     )
-else:
-    private_rate_reach = empirical_success_rate_private(
-            env,
-            policy_reach,
-            num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
-            max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
-            epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
-            k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
-            use_marginalized_policies=False,
-        )
 
 # Save the results
 exp_logger['max_reachability_results'] = {
     'occupancy_vars' : occupancy_vars_reach,
     'policy' : policy_reach,
+    'eval_policy' : eval_policy,
     'opt_val' : prob.solution.opt_val,
     'success_prob' : success_prob_reach,
     'expected_len' : expected_len_reach,
@@ -225,10 +221,8 @@ exp_logger['max_reachability_results'] = {
     'empirical_private_success_rate' : private_rate_reach,
 }
 
-if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
-    exp_logger['max_reachability_results']['marginalized_policies'] = marginalized_policies
+if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
     exp_logger['max_reachability_results']['policy_kl'] = policy_kl
-    
     print('KL divergence between joint and marginalized policies: {}'.format(policy_kl))
 
 # Print the results to the terminal
@@ -254,14 +248,14 @@ params[2].value = exp_logger['optimization_params']['total_corr_coef']
 ########################################################################################
 
 x_last = x_start
-for i in range(20):
+for i in range(80):
     params[3].value = x_last
     # prob.solve(verbose=True, solver='ECOS') 
     prob.solve(verbose=False, solver='MOSEK')
 
     # Compute the results of the current iteration
     occupancy_vars = process_occupancy_vars(vars[0])
-    policy = policy_from_occupancy_vars(mdp, occupancy_vars, env.N_agents)
+    policy = JointPolicy(mdp, env.N_agents, occupancy_vars)
     success_prob = success_probability_from_occupancy_vars(mdp, occupancy_vars, env.N_agents)
     expected_len = expected_len_from_occupancy_vars(mdp, occupancy_vars)
     joint_entropy = compute_joint_entropy(mdp, occupancy_vars, env.N_agents)
@@ -273,43 +267,37 @@ for i in range(20):
                                 g_grad=g_grad,
                                 x=occupancy_vars)
     
-    # Empirically test the success rate during imaginary play.
+    # Empirically test the success rate of the joint policy under truthful communication.
     empirical_rate = empirical_success_rate(
         env,
         policy,
-        use_imaginary_play=True,
         num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
         max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
     )
     
-    if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
-        marginalized_policies = marginalize_policy(policy, mdp, env.N_agents)
-        policy_kl = kl_divergence_joint_and_marginalized_policies(policy, marginalized_policies, mdp, env.N_agents)
-        
-        private_rate = empirical_success_rate_private(
-            env,
-            marginalized_policies,
-            num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
-            max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
-            epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
-            k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
-            use_marginalized_policies=True,
-        )
-    else:
-        private_rate = empirical_success_rate_private(
-            env,
-            policy,
-            num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
-            max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
-            epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
-            k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
-            use_marginalized_policies=False,
-        )
+    # Now get the marginalized policies to run private play.
+    if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
+        eval_policy = LocalPolicies(mdp, env.N_agents, x=occupancy_vars)
+        policy_kl = eval_policy.kl_divergence_joint_and_marginalized_policies(policy)
+    elif exp_logger['empirical_eval_settings']['policy_type'] == 'joint':
+        eval_policy = policy
+
+    # Empirically test the success rate of the policies under private communication.
+    private_rate = empirical_success_rate_private(
+        env,
+        eval_policy,
+        num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+        max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory'],
+        epsilon=exp_logger['empirical_eval_settings']['privacy_parameter'],
+        k=exp_logger['empirical_eval_settings']['adjacency_parameter'],
+        policy_type=exp_logger['empirical_eval_settings']['policy_type'],
+    )
 
     # Save the results of this iteration
     exp_logger['results'][i] = {
         'occupancy_vars' : occupancy_vars,
         'policy' : policy,
+        'eval_policy' : eval_policy,
         'opt_val' : prob.solution.opt_val,
         'x_last' : x_last,
         'success_prob' : success_prob,
@@ -320,10 +308,8 @@ for i in range(20):
         'empirical_private_success_rate' : private_rate,
     }
     
-    if exp_logger['empirical_eval_settings']['use_marginalized_policies']:
-        exp_logger['results'][i]['marginalized_policies'] = marginalized_policies
-        exp_logger['results'][i]['policy_kl'] = policy_kl
-        
+    if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
+        exp_logger['results'][i]['policy_kl'] = policy_kl        
         print('KL divergence between joint and marginalized policies: {}'.format(policy_kl))
     
     # Print the results to the terminal

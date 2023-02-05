@@ -3,6 +3,11 @@ from scipy.stats import bernoulli
 
 from differential_privacy.privacy_mechanism import build_privacy_mechanism
 
+import sys
+sys.path.append('../')
+
+from markov_decision_process.policies import JointPolicy, LocalPolicies
+
 import time
 
 def run_trajectory(env, policy : np.ndarray, max_steps : int = 50):
@@ -15,9 +20,8 @@ def run_trajectory(env, policy : np.ndarray, max_steps : int = 50):
     env :
         The environment on which the trajectory is to be run.
     policy : 
-        Matrix representing the policy. policy[s_ind, a_ind] is the 
-        probability of taking the action indexed by a_ind from the 
-        joint state indexed by s_ind.
+        Representation of the team policy. 
+        Either a JointPolicy or a LocalPolicy object.
 
     Returns
     -------
@@ -30,213 +34,9 @@ def run_trajectory(env, policy : np.ndarray, max_steps : int = 50):
 
     while ((s not in env.target_indexes) and (s not in env.dead_indexes)
                 and len(traj) <= max_steps):
-        a = np.random.choice(np.arange(env.Na_joint), p=policy[s,:])
+        a = policy.sample_joint_action(s)
         s = np.random.choice(np.arange(env.Ns_joint), p=env.T[s,a,:])
         traj.append(s)
-
-    return traj
-
-def run_trajectory_imaginary(env, 
-                                policy : np.ndarray, 
-                                max_steps : int = 50):
-    """
-    Run a trajectory from the joint initial state under imaginary 
-    play implementing the specified joint policy.
-
-    Parameters
-    ----------
-    policy : 
-        Matrix representing the policy. policy[s_ind, a_ind] is the 
-        probability of taking the action indexed by a_ind from the 
-        joint state indexed by s_ind.
-
-    Returns
-    -------
-    traj : list
-        List of indexes of states. 
-    """
-    traj = []
-    agent_s_tuples = {}
-    agent_s_inds = {}
-    agent_a_inds = {}
-
-    actions = np.arange(env.Na_joint)
-    states = np.arange(env.Ns_joint)
-
-    s_tuple = env.pos_from_index[env.initial_index]
-
-    for agent_id in range(env.N_agents):
-        agent_s_tuples[agent_id] = s_tuple
-        agent_s_inds[agent_id] = \
-            env.index_from_pos[agent_s_tuples[agent_id]]
-
-    s_tuple = ()
-    for agent_id in range(env.N_agents):
-        if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
-            s_tuple = s_tuple \
-                + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
-        else:
-            s_tuple = s_tuple \
-                + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
-    s = env.index_from_pos[s_tuple]
-    traj.append(s)
-
-    while ((s not in env.target_indexes) 
-                and (s not in env.dead_indexes)
-                and len(traj) <= max_steps):
-        for agent_id in range(env.N_agents):
-
-            s_imag_ind = agent_s_inds[agent_id]
-            # Get the agent's action distribution from the policy.
-            act_dist = policy[s_imag_ind, :]
-
-            # Get the team's action, as imagined by the agent.
-            act = np.random.choice(actions, p=act_dist)
-
-
-            ##### This is where privacy goes
-            # Instead of imagining where the team goes next
-            
-            # Get the team's next state, as imagined by the agent.
-            s_next_ind = np.random.choice(states, p=env.T[s_imag_ind, act, :])
-            s_next_tuple = env.pos_from_index[s_next_ind]
-
-            agent_a_inds[agent_id] = act
-            agent_s_inds[agent_id] = s_next_ind
-            agent_s_tuples[agent_id] = s_next_tuple
-
-        # Construct the true team next state
-        s_tuple = ()
-        for agent_id in range(env.N_agents):
-            if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
-                s_tuple = s_tuple \
-                    + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
-            else:
-                s_tuple = s_tuple \
-                    + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
-        s = env.index_from_pos[s_tuple]
-        traj.append(s)
-        
-        # Privatize
-
-    return traj
-
-def run_trajectory_intermittent(env, 
-                                policy : np.ndarray, 
-                                q : float,
-                                max_steps : int = 50):
-    """
-    Run a trajectory from the joint initial state under imaginary 
-    play implementing the specified joint policy.
-
-    Parameters
-    ----------
-    policy : 
-        Matrix representing the policy. policy[s_ind, a_ind] is the 
-        probability of taking the action indexed by a_ind from the 
-        joint state indexed by s_ind.
-    q :
-        Value in [0,1] representing the parameter of the bernoulli
-        distribution modeling the probability of loosing 
-        communication at each step.
-
-    Returns
-    -------
-    traj : list
-        List of indexes of states. 
-    """
-    traj = []
-    agent_s_tuples = {}
-    agent_s_inds = {}
-    agent_a_inds = {}
-
-    actions = np.arange(env.Na_joint)
-    states = np.arange(env.Ns_joint)
-
-    s_tuple = env.pos_from_index[env.initial_index]
-
-    for agent_id in range(env.N_agents):
-        agent_s_tuples[agent_id] = s_tuple
-        agent_s_inds[agent_id] = \
-            env.index_from_pos[agent_s_tuples[agent_id]]
-    
-    s_tuple = ()
-    for agent_id in range(env.N_agents):
-        if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
-            s_tuple = s_tuple \
-                + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
-        else:
-            s_tuple = s_tuple \
-                + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
-    s = env.index_from_pos[s_tuple]
-    traj.append(s)
-
-    timestep = 0
-    while ((s not in env.target_indexes) 
-                and (s not in env.dead_indexes)
-                and len(traj) <= max_steps):
-        
-        # flag should be true if communication is available
-        comm_flag = 1 - bernoulli.rvs(q)
-
-        if comm_flag:
-            for agent_id in range(env.N_agents):
-                agent_s_inds[agent_id] = s
-            a = np.random.choice(np.arange(env.Na_joint), p=policy[s,:])
-
-            for agent_id in range(env.N_agents):
-                # Get the team's next state, as imagined by the agent.
-                s_next_ind = np.random.choice(states, p=env.T[s, a, :])
-                s_next_tuple = env.pos_from_index[s_next_ind]
-
-                agent_a_inds[agent_id] = a
-                agent_s_inds[agent_id] = s_next_ind
-                agent_s_tuples[agent_id] = s_next_tuple
-
-            # Construct the true team next state
-            s_tuple = ()
-            for agent_id in range(env.N_agents):
-                if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
-                    s_tuple = s_tuple \
-                        + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
-                else:
-                    s_tuple = s_tuple \
-                        + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
-            s = env.index_from_pos[s_tuple]
-            
-        else:
-            for agent_id in range(env.N_agents):
-
-                s_imag_ind = agent_s_inds[agent_id]
-
-                # Get the agent's action distribution from the policy.
-                act_dist = policy[s_imag_ind, :]
-
-                # Get the team's action, as imagined by the agent.
-                act = np.random.choice(actions, p=act_dist)
-
-                # Get the team's next state, as imagined by the agent.
-                s_next_ind = np.random.choice(states, p=env.T[s_imag_ind, act, :])
-                s_next_tuple = env.pos_from_index[s_next_ind]
-
-                agent_a_inds[agent_id] = act
-                agent_s_inds[agent_id] = s_next_ind
-                agent_s_tuples[agent_id] = s_next_tuple
-
-            # Construct the true team next state
-            s_tuple = ()
-            for agent_id in range(env.N_agents):
-                if type(agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]) is tuple:
-                    s_tuple = s_tuple \
-                        + agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]
-                else:
-                    s_tuple = s_tuple \
-                        + tuple([agent_s_tuples[agent_id][env.agent_tuple_slice(agent_id)]])
-            s = env.index_from_pos[s_tuple]
-
-        traj.append(s)
-
-        timestep = timestep + 1
 
     return traj
 
@@ -245,7 +45,7 @@ def run_trajectory_private(
         policy, 
         mu : np.ndarray, 
         max_steps : int = 50,
-        use_marginalized_policies : bool = False,
+        policy_type : str = 'joint',
     ):
     """
     Run a trajectory from the joint initial state under private 
@@ -257,12 +57,7 @@ def run_trajectory_private(
         The environment in which to generate the trajectory.
     policy : 
         Representation of the team policy. 
-        If use_marginalized_policies is False, policy is an ndarray and
-        policy[s_ind, a_ind] is the probability of taking the joint action 
-        indexed by a_ind from the joint state indexed by s_ind.
-        If use_marginalized_policies is True, policy is a list of ndarrays and
-        policy[agent_id][s_ind, a_ind] is the probability of the agent specified
-        by agent_id taking the local action a_ind, from the joint state s_ind.
+        Either a JointPolicy or a LocalPolicy object.
     mu : 
         The privacy policy.
     max_steps : 
@@ -271,9 +66,9 @@ def run_trajectory_private(
         The privacy parameter.
     k :
         The adjacency parameter.
-    use_marginalized_policies :
-        A boolean flag indicating whether or not to use marginalized policies
-        when simulating the team's behavior.
+    policy_type :
+        Whether or not to run the privatized policy execution with a 
+        joint, local, or acyclic local policies.
 
     Returns
     -------
@@ -281,14 +76,14 @@ def run_trajectory_private(
         List of indexes of states. 
     """   
     
-    if use_marginalized_policies:
-        assert (isinstance(policy, list) and len(policy) == env.N_agents)
-    else:
-        assert (isinstance(policy, np.ndarray) and policy.shape == (env.Ns_joint, env.Na_joint))
+    if policy_type == 'local':
+        assert (isinstance(policy, LocalPolicies) and len(policy.policies) == env.N_agents)
+    elif policy_type == 'joint':
+        assert (isinstance(policy, JointPolicy) and policy.policy.shape == (env.Ns_joint, env.Na_joint))
     
     traj = []
     agent_s_tuples = {} # This is where we will store the private copy of everyones state
-    agent_s_inds = {} #private indexes
+    agent_s_inds = {} # private indexes
     agent_a_inds = {} #
     
     actions = np.arange(env.Na_joint)
@@ -353,18 +148,17 @@ def run_trajectory_private(
             # Get action disctribution based on the private information
             agent_i_s_hat_idx = env.index_from_pos[agent_i_s_hat]
 
-            if not use_marginalized_policies:
-                act_dist = policy[agent_i_s_hat_idx,:]
-                
+            if policy_type == 'joint':
                 # Get the team's action, as imagined by the agents private information
-                act = np.random.choice(actions, p=act_dist)
+                act = policy.sample_joint_action(agent_i_s_hat_idx)
                 
                 # Extract my action from the joint action
                 my_action = env.action_tuple_from_index[act][agent_id]
                 agents_actions[agent_id] = my_action
-            else:
-                local_policy = policy[agent_id]
-                my_action = np.random.choice(actions_local, p=local_policy[agent_i_s_hat_idx,:])
+            elif policy_type == 'local':
+                # local_policy = policy[agent_id]
+                # my_action = np.random.choice(actions_local, p=local_policy[agent_i_s_hat_idx,:])
+                my_action = policy.sample_local_action(agent_id, agent_i_s_hat_idx)
                 agents_actions[agent_id] = my_action
                 
         # Now that we have each agents action, make it a tuple joint action
@@ -378,51 +172,7 @@ def run_trajectory_private(
     return traj
 
 def empirical_success_rate(env,
-                                policy : np.ndarray,
-                                use_imaginary_play : bool = False,
-                                num_trajectories : int = 1000,
-                                max_steps_per_trajectory : int = 50):
-    """
-    Run a trajectory from the joint initial state implementing the
-    specified policy with full communication.
-
-    Parameters
-    ----------
-    policy : 
-        A (Ns, Na) Matrix representing the policy. 
-        policy[s_ind, a_ind] is the probability of taking the action
-        indexed by a_ind from the joint state indexed by s_ind.
-    use_imaginary_play :
-        A boolean flag indicating whether or not to use imaginary 
-        play when generating the gifs.
-    num_trajectories :
-        The number of trajectories to include in the gif.
-    max_steps_per_trajectory :
-        The maximum number of steps to include in each trajectory
-        of the gif.
-
-    Returns
-    -------
-    success_rate : float
-        A numerical value between 0 and 1 indicating the frequency
-        at which the policy was observed to reach the target set.
-    """
-    success_count = 0
-    for t_ind in range(num_trajectories):
-        if use_imaginary_play:
-            temp_traj = run_trajectory_imaginary(env, policy, 
-                                max_steps=max_steps_per_trajectory)
-        else:
-            temp_traj = run_trajectory(env, policy, 
-                                max_steps=max_steps_per_trajectory)
-        if (temp_traj[-1] in env.target_indexes):
-                success_count = success_count + 1
-
-    return success_count / num_trajectories
-
-def empirical_intermittent_success_rate(env,
-                            policy : np.ndarray,
-                            q: float,
+                            policy,
                             num_trajectories : int = 1000,
                             max_steps_per_trajectory : int = 50):
     """
@@ -432,13 +182,8 @@ def empirical_intermittent_success_rate(env,
     Parameters
     ----------
     policy : 
-        A (Ns, Na) Matrix representing the policy. 
-        policy[s_ind, a_ind] is the probability of taking the action
-        indexed by a_ind from the joint state indexed by s_ind.
-    q :
-        Value in [0,1] representing the parameter of the bernoulli
-        distribution modeling the probability of loosing 
-        communication at each step.            
+        Representation of the team policy. 
+        Either a JointPolicy or a LocalPolicy object.
     num_trajectories :
         The number of trajectories to include in the gif.
     max_steps_per_trajectory :
@@ -453,7 +198,7 @@ def empirical_intermittent_success_rate(env,
     """
     success_count = 0
     for t_ind in range(num_trajectories):
-        temp_traj = run_trajectory_intermittent(env, policy, q,
+        temp_traj = run_trajectory(env, policy, 
                             max_steps=max_steps_per_trajectory)
         if (temp_traj[-1] in env.target_indexes):
                 success_count = success_count + 1
@@ -466,7 +211,7 @@ def empirical_success_rate_private(env,
                                 max_steps_per_trajectory : int = 50,
                                 epsilon=1,
                                 k=3,
-                                use_marginalized_policies : bool = False,
+                                policy_type : str = 'joint',
                             ):
     """
     Run a trajectory from the joint initial state implementing the
@@ -476,12 +221,7 @@ def empirical_success_rate_private(env,
     ----------
     policy : 
         Representation of the team policy. 
-        If use_marginalized_policies is False, policy is an ndarray and
-        policy[s_ind, a_ind] is the probability of taking the joint action 
-        indexed by a_ind from the joint state indexed by s_ind.
-        If use_marginalized_policies is True, policy is a list of ndarrays and
-        policy[agent_id][s_ind, a_ind] is the probability of the agent specified
-        by agent_id taking the local action a_ind, from the joint state s_ind.
+        Either a JointPolicy or a LocalPolicy object.
     use_imaginary_play :
         A boolean flag indicating whether or not to use imaginary 
         play when generating the gifs.
@@ -494,9 +234,9 @@ def empirical_success_rate_private(env,
         The privacy parameter.
     k :
         The adjacency parameter.
-    use_marginalized_policies :
-        A boolean flag indicating whether or not to use marginalized policies
-        when simulating the team's performance.
+    policy_type :
+        Whether or not to run the privatized policy execution with a 
+        joint, local, or acyclic local policies.
 
     Returns
     -------
@@ -522,7 +262,7 @@ def empirical_success_rate_private(env,
             policy, 
             mu,
             max_steps=max_steps_per_trajectory,
-            use_marginalized_policies=use_marginalized_policies,
+            policy_type=policy_type,
         )
         if (temp_traj[-1] in env.target_indexes):
                 success_count = success_count + 1
