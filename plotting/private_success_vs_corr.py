@@ -17,12 +17,9 @@ num_data_points = 80
 tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
-# save_file_name = '2022-12-23-12-02-14_ma_gridworld_minimum_dependency_0p05.pkl'
-# save_file_name = '2022-12-27-18-59-30_ma_gridworld_minimum_dependency_0p05.pkl'
-# save_file_name = '2023-01-05-21-30-29_ma_gridworld_minimum_dependency_0p05.pkl'
-# save_file_name = '2023-01-10-17-40-25_sys_admin_minimum_dependency.pkl'
-# save_file_name = '2023-01-10-19-02-58_sys_admin_minimum_dependency.pkl'
+
 save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl'
+
 save_str = os.path.join(base_path, save_file_name)
 
 with open(save_str, 'rb') as f:
