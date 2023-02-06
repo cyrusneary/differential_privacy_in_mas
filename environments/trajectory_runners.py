@@ -118,32 +118,35 @@ def run_trajectory_private(
             and len(traj) <= max_steps):
         np.random.seed()
         # Before sharing anything, have each agent privatize its state
+        true_states = {}
         private_states = {}
         for agent_id in range(env.N_agents):
             # Convert this agents state to its local index, i.e., 1...Nr*Nc
-            true_state = env.local_index_from_pos[s_tuple[env.agent_tuple_slice(agent_id)]]
+            true_states[agent_id] = env.local_index_from_pos[s_tuple[env.agent_tuple_slice(agent_id)]]
             
             # Generate private state
-            private_states[agent_id] = np.random.choice(np.arange(env.Ns_local), p=mu[true_state, last_private_state[agent_id], :])
+            private_states[agent_id] = \
+                np.random.choice(np.arange(env.Ns_local), p=mu[true_states[agent_id], last_private_state[agent_id], :])
         
         # Now each agent:
         # - collects the private info from the other agents to construct s hat
         agents_actions = {}
         for agent_id in range(env.N_agents):
             agent_i_s_hat = ()
+            agent_i_s_hat_local_inds = ()
             for i in range(env.N_agents):
-                if i==agent_id:
+                if i==agent_id: # Use your own real state
                     if type(s_tuple[env.agent_tuple_slice(agent_id)]) is tuple:
                         agent_i_s_hat=(agent_i_s_hat + s_tuple[env.agent_tuple_slice(agent_id)])
                     else:
                         agent_i_s_hat=(agent_i_s_hat + tuple([s_tuple[env.agent_tuple_slice(agent_id)]]))
-                    # agent_i_s_hat=(agent_i_s_hat + s_tuple[env.agent_tuple_slice(agent_id)]) # Use your own real state
-                else:
+                    agent_i_s_hat_local_inds = (agent_i_s_hat_local_inds + tuple([true_states[i]]))
+                else: # use everyone elses private data
                     if type(env.local_pos_from_index[private_states[i]]) is tuple:
                         agent_i_s_hat=(agent_i_s_hat + env.local_pos_from_index[private_states[i]])
                     else:
-                        agent_i_s_hat=(agent_i_s_hat + tuple([env.local_pos_from_index[private_states[i]]])) # use everyone elses private data
-                    # agent_i_s_hat=(agent_i_s_hat + env.local_pos_from_index[private_states[i]]) 
+                        agent_i_s_hat=(agent_i_s_hat + tuple([env.local_pos_from_index[private_states[i]]])) 
+                    agent_i_s_hat_local_inds = (agent_i_s_hat_local_inds + tuple([private_states[i]]))
             
             # Get action disctribution based on the private information
             agent_i_s_hat_idx = env.index_from_pos[agent_i_s_hat]
@@ -155,10 +158,13 @@ def run_trajectory_private(
                 # Extract my action from the joint action
                 my_action = env.action_tuple_from_index[act][agent_id]
                 agents_actions[agent_id] = my_action
+                
             elif policy_type == 'local':
-                # local_policy = policy[agent_id]
-                # my_action = np.random.choice(actions_local, p=local_policy[agent_i_s_hat_idx,:])
                 my_action = policy.sample_local_action(agent_id, agent_i_s_hat_idx)
+                agents_actions[agent_id] = my_action
+                
+            elif policy_type == 'acyclic':
+                my_action = policy.sample_local_action(agent_id, agent_i_s_hat_local_inds)
                 agents_actions[agent_id] = my_action
                 
         # Now that we have each agents action, make it a tuple joint action

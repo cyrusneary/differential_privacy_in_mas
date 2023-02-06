@@ -32,7 +32,7 @@ exp_logger = {
         'max_steps_per_trajectory' : 200,
         'privacy_parameter' : 1,
         'adjacency_parameter' : 3,
-        'policy_type' : 'local', # joint, local, acyclic
+        'policy_type' : 'acyclic', # joint, local, acyclic
         'dependency_structure' : [(1, 0)],
     },
 }

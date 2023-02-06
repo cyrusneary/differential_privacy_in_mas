@@ -17,7 +17,8 @@ from optimization_problems.random_policy import build_random_policy_program
 from environments.trajectory_runners import empirical_success_rate, empirical_success_rate_private
 from environments.environment_factory import get_environment
 
-from markov_decision_process.policies import JointPolicy, LocalPolicies
+from markov_decision_process.policies import JointPolicy, LocalPolicies, \
+    LocalPoliciesAcyclicDependencies
 
 ##########################
 #### Experimental settings
@@ -195,6 +196,13 @@ if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
     policy_kl = eval_policy.kl_divergence_joint_and_marginalized_policies(policy_reach)
 elif exp_logger['empirical_eval_settings']['policy_type'] == 'joint':
     eval_policy = policy_reach
+elif exp_logger['empirical_eval_settings']['policy_type'] == 'acyclic':
+    eval_policy = LocalPoliciesAcyclicDependencies(
+            mdp, 
+            env.N_agents, 
+            exp_logger['empirical_eval_settings']['dependency_structure'],
+            x=occupancy_vars_reach,
+        )
   
 # Empirically test the success rate during private communication.  
 private_rate_reach = empirical_success_rate_private(
@@ -281,6 +289,13 @@ for i in range(80):
         policy_kl = eval_policy.kl_divergence_joint_and_marginalized_policies(policy)
     elif exp_logger['empirical_eval_settings']['policy_type'] == 'joint':
         eval_policy = policy
+    elif exp_logger['empirical_eval_settings']['policy_type'] == 'acyclic':
+        eval_policy = LocalPoliciesAcyclicDependencies(
+                mdp, 
+                env.N_agents, 
+                exp_logger['empirical_eval_settings']['dependency_structure'],
+                x=occupancy_vars,
+            )
 
     # Empirically test the success rate of the policies under private communication.
     private_rate = empirical_success_rate_private(

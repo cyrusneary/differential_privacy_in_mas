@@ -320,6 +320,8 @@ class LocalPoliciesAcyclicDependencies:
         self.x = x
         
         Na_local = round(pow(self.mdp.Na, 1/self.num_agents))
+        Ns_local = round(pow(self.mdp.Ns, 1/self.num_agents))
+        
         Na = (Na_local + 1) ** self.num_agents
 
         action_shape = tuple([Na_local + 1 for i in range(self.num_agents)])
@@ -340,11 +342,22 @@ class LocalPoliciesAcyclicDependencies:
 
         x_mod = np.copy(x)[:, true_actions]
 
+        # Each policy should be an array of shape (Ns_dep, Na_local), where
+        # Ns_dep is the number of combinations of the local teammate (and self) 
+        # states that the policy depends on.
         policies = []
 
         for i in range(self.num_agents):
-            pass
-            # local_policy = np.zeros((self.mdp.Ns, self.mdp.Na))
+            Ns_dep = (len(list(nx.descendants(self.dependency_graph, i))) + 1) * Ns_local
+            local_policy = np.zeros((Ns_dep, Na_local))
+            
+            for s_dep in range(Ns_dep):
+                for a_local in range(Na_local):
+                    for a_joint in true_actions:
+                        a_tuple = np.unravel_index(a_joint, action_shape)
+                        if a_tuple[i] == a_local:
+                            local_policy[s_dep, a_local] += x_mod[s_dep, a_joint]
+            
             # for s in range(self.mdp.Ns):
             #     for a in range(self.mdp.Na):
             #         if not (np.sum(x_mod[s,:]) == 0.0):
