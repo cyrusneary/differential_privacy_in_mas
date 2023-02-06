@@ -290,6 +290,9 @@ class LocalPoliciesAcyclicDependencies:
         self.mdp = mdp
         self.num_agents = num_agents
         self.x = x
+
+        self.Na_local = round(pow(self.mdp.Na, 1/self.num_agents))
+        self.Ns_local = round(pow(self.mdp.Ns, 1/self.num_agents))
       
         self.dependency_graph = nx.DiGraph()
         self.dependency_graph.add_nodes_from(range(num_agents))
@@ -319,14 +322,11 @@ class LocalPoliciesAcyclicDependencies:
         """
         self.x = x
         
-        Na_local = round(pow(self.mdp.Na, 1/self.num_agents))
-        Ns_local = round(pow(self.mdp.Ns, 1/self.num_agents))
-        
-        Na = (Na_local + 1) ** self.num_agents
+        Na = (self.Na_local + 1) ** self.num_agents
 
-        action_shape = tuple([Na_local + 1 for i in range(self.num_agents)])
+        action_shape = tuple([self.Na_local + 1 for i in range(self.num_agents)])
         
-        local_auxiliary_action_index = Na_local
+        local_auxiliary_action_index = self.Na_local
 
         true_actions = []
         partially_auxiliary_actions = []
@@ -342,28 +342,52 @@ class LocalPoliciesAcyclicDependencies:
 
         x_mod = np.copy(x)[:, true_actions]
 
+        # Adjust the action shape variable to remove the auxiliary action.
+        action_shape = tuple([self.Na_local for i in range(self.num_agents)])
+
         # Each policy should be an array of shape (Ns_dep, Na_local), where
         # Ns_dep is the number of combinations of the local teammate (and self) 
         # states that the policy depends on.
         policies = []
 
         for i in range(self.num_agents):
-            Ns_dep = (len(list(nx.descendants(self.dependency_graph, i))) + 1) * Ns_local
-            local_policy = np.zeros((Ns_dep, Na_local))
+            Ns_dep = self.Ns_local ** (len(list(nx.descendants(self.dependency_graph, i))) + 1)
+            local_policy = np.zeros((Ns_dep, self.Na_local))
             
             for s_dep in range(Ns_dep):
-                for a_local in range(Na_local):
-                    for a_joint in true_actions:
-                        a_tuple = np.unravel_index(a_joint, action_shape)
-                        if a_tuple[i] == a_local:
-                            local_policy[s_dep, a_local] += x_mod[s_dep, a_joint]
-            
-            # for s in range(self.mdp.Ns):
-            #     for a in range(self.mdp.Na):
-            #         if not (np.sum(x_mod[s,:]) == 0.0):
-            #             policy[s,a] = x_mod[s, a] / np.sum(x_mod[s, :])
-            #         else:
-            #             policy[s,a] = 1.0 / len(x_mod[s,:])
+                for a_local in range(self.Na_local):
+                    # Find the set of all joint actions that are consistent with the local action.
+                    Na_joint_indexes = np.arange(self.mdp.Na)
+                    consistent_team_actions = np.where(np.unravel_index(Na_joint_indexes, action_shape)[i] == a_local)
+
+                    # Find the set of all joint states that are consistent with the local state.
+
+                    s_dep_local_states = self.get_local_states_from_observation_index(i, s_dep)
+
+                    this_agent_dependencies = self.get_indeces_of_this_agents_dependencies(i)
+
+                    consistent_team_states = []
+                    # Iterate over all possible joint states.
+                    for s_joint in range(self.mdp.Ns):
+                        # Find the tuple representation of the joint state.
+                        s_joint_tuple = np.unravel_index(s_joint, tuple([self.Ns_local for i in range(self.num_agents)]))
+                        # Find the tuple representation of the joint state that only includes the states of the agents that this agent depends on.
+                        s_joint_tuple_dependent_states_only = tuple([s_joint_tuple[j] for j in this_agent_dependencies])
+                        # Check if this joint state is consistent with the local state.
+                        if s_joint_tuple_dependent_states_only == s_dep_local_states:
+                            consistent_team_states.append(s_joint)
+
+                    consistent_team_states = np.array([consistent_team_states]).transpose()
+
+                    # Use the sets of consistent team states and actions to compute the local policy.
+                    if not (np.sum(x_mod[consistent_team_states, :]) == 0.0):
+                        local_policy[s_dep, a_local] = np.sum(x_mod[consistent_team_states, consistent_team_actions]) \
+                             / np.sum(x_mod[consistent_team_states, :])
+                    else:
+                        local_policy[s_dep, a_local] = 1.0 / len(x_mod[consistent_team_states, :])
+
+            policies.append(local_policy)
+
         self.policies = policies
 
     def check_acyclic_dependency_structure(self):
@@ -392,7 +416,8 @@ class LocalPoliciesAcyclicDependencies:
         local_policy = self.policies[agent_id]
         
         dependence_inds = self.get_indeces_of_this_agents_dependencies(agent_id)
-        local_policy_input = [joint_state_tuple[i] for i in dependence_inds]
+        local_policy_input_tuple = tuple([joint_state_tuple[i] for i in dependence_inds])
+        local_policy_input = np.ravel_multi_index(local_policy_input_tuple, tuple([self.Ns_local for i in range(len(dependence_inds))]))
 
         return np.random.choice(np.arange(self.Na_local), p=local_policy[local_policy_input,:])
 
@@ -402,7 +427,50 @@ class LocalPoliciesAcyclicDependencies:
         """
         dependencies = [idx for idx in self.dependency_graph.successors(agent_id)]
         dependencies.append(agent_id)
-        return dependencies.sort()
+        dependencies.sort()
+        return dependencies
+
+    def get_observation_index_from_local_states(self, this_agent_ind : int, local_states : tuple):
+        """
+        Return the index of the observation corresponding to a given tuple of local states for a particular
+        agent.
+
+        Parameters
+        ----------
+        this_agent_ind : int
+            The index of the agent whose observation index is to be returned.
+        local_states : tuple
+            A tuple of local states. The ith element of the tuple represents the local state of the ith agent
+            that this agent depends on.
+
+        Returns
+        -------
+        observation_index : int
+            The index of the observation corresponding to the given tuple of local states.
+        """
+        this_agent_dependencies = self.get_indeces_of_this_agents_dependencies(this_agent_ind)
+        return np.ravel_multi_index(local_states, tuple([self.Ns_local for i in range(len(this_agent_dependencies))]))
+
+    def get_local_states_from_observation_index(self, this_agent_ind : int, observation_index : int):
+        """
+        Return the tuple of local states corresponding to a given observation index for a particular
+        agent.
+
+        Parameters
+        ----------
+        this_agent_ind : int
+            The index of the agent whose observation index is to be returned.
+        observation_index : int
+            The index of the observation whose local states are to be returned.
+
+        Returns
+        -------
+        local_states : tuple
+            A tuple of local states. The ith element of the tuple represents the local state of the ith agent
+            that this agent depends on.
+        """
+        this_agent_dependencies = self.get_indeces_of_this_agents_dependencies(this_agent_ind)
+        return np.unravel_index(observation_index, tuple([self.Ns_local for i in range(len(this_agent_dependencies))]))
 
 
 if '__main__' == __name__:

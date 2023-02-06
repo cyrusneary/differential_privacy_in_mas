@@ -343,7 +343,8 @@ for i in range(80):
     
     print('TC: {}'.format(vars[1].value))
 
-    print('KL divergence with marginalized policies: {}'.format(policy_kl))
+    if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
+        print('KL divergence with marginalized policies: {}'.format(policy_kl))
     
     print('||x - x_last||: {}'.format(
         np.linalg.norm(
