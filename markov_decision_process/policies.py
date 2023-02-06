@@ -162,6 +162,26 @@ class LocalPolicies:
         local_policy = self.policies[agent_ind]
         return np.random.choice(np.arange(self.Na_local), p=local_policy[joint_state,:])
         
+    def sample_joint_action(self, joint_state : int):
+        """
+        Sample a joint action from the joint policy.
+
+        Parameters
+        ----------
+        joint_state : int
+            The index of the joint state.
+
+        Returns
+        -------
+        joint_action : int
+            The index of the sampled joint action.
+        """
+        agents_actions = {}
+        for i in range(self.num_agents):
+            agents_actions[i] = self.sample_local_action(i, joint_state)
+        a_tuple = tuple(agents_actions[agent_id] for agent_id in range(self.num_agents))
+        return np.ravel_multi_index(a_tuple, tuple([self.Na_local for i in range(self.num_agents)]))
+
     def construct_policies_from_joint_policy(self, joint_policy : JointPolicy):
         """
         Construct the local policies by marginalizing the joint policy.
@@ -396,7 +416,7 @@ class LocalPoliciesAcyclicDependencies:
         """
         return nx.is_directed_acyclic_graph(self.dependency_graph)
 
-    def sample_local_action(self, joint_state_tuple : tuple, agent_id : int):
+    def sample_local_action(self, agent_id : int, joint_state_tuple : tuple):
         """
         Return the local action for a given agent in a given joint state.
         
@@ -420,6 +440,26 @@ class LocalPoliciesAcyclicDependencies:
         local_policy_input = np.ravel_multi_index(local_policy_input_tuple, tuple([self.Ns_local for i in range(len(dependence_inds))]))
 
         return np.random.choice(np.arange(self.Na_local), p=local_policy[local_policy_input,:])
+
+    def sample_joint_action(self, joint_state : int):
+        """
+        Sample a joint action from the joint policy.
+
+        Parameters
+        ----------
+        joint_state : int
+            The index of the joint state.
+
+        Returns
+        -------
+        joint_action : int
+            The index of the sampled joint action.
+        """
+        agents_actions = {}
+        for i in range(self.num_agents):
+            agents_actions[i] = self.sample_local_action(i, np.unravel_index(joint_state, tuple([self.Ns_local for i in range(self.num_agents)])))
+        a_tuple = tuple(agents_actions[agent_id] for agent_id in range(self.num_agents))
+        return np.ravel_multi_index(a_tuple, tuple([self.Na_local for i in range(self.num_agents)]))
 
     def get_indeces_of_this_agents_dependencies(self, agent_id : int):
         """

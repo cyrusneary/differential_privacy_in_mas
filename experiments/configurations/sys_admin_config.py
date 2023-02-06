@@ -23,7 +23,7 @@ exp_logger = {
     },
     'optimization_params' : {
         'reachability_coef' : 100.0, # 10.0
-        'exp_len_coef' : 1.0, # 0.1
+        'exp_len_coef' : 0.1, #1.0, # 0.1
         'total_corr_coef' : 1.0 # 4.0
     },
     'empirical_eval_settings' : {

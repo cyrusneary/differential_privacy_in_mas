@@ -182,13 +182,7 @@ total_corr_reach = compute_total_correlation(mdp,
                             g_grad=g_grad,
                             x=occupancy_vars_reach)
 
-# Empirically test the success rate during truthful communication.
-empirical_rate_reach = empirical_success_rate(
-    env,
-    policy_reach,
-    num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
-    max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
-)
+
 
 # Get the marginalized policies to test private communication.
 if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
@@ -204,6 +198,14 @@ elif exp_logger['empirical_eval_settings']['policy_type'] == 'acyclic':
             x=occupancy_vars_reach,
         )
   
+# Empirically test the success rate during truthful communication.
+truthful_rate_reach = empirical_success_rate(
+    env,
+    eval_policy,
+    num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+    max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
+)
+
 # Empirically test the success rate during private communication.  
 private_rate_reach = empirical_success_rate_private(
         env,
@@ -225,7 +227,7 @@ exp_logger['max_reachability_results'] = {
     'expected_len' : expected_len_reach,
     'joint_entropy' : joint_entropy_reach,
     'total_corr_reach' : total_corr_reach,
-    'empirical_imag_success_rate' : empirical_rate_reach,
+    'empirical_truthful_success_rate' : truthful_rate_reach,
     'empirical_private_success_rate' : private_rate_reach,
 }
 
@@ -234,13 +236,13 @@ if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
     print('KL divergence between joint and marginalized policies: {}'.format(policy_kl))
 
 # Print the results to the terminal
-print(('Success probability: {}, \n \
-        Imaginary Play success prob: {}, \n \
+print(('Success probability w/ truthful play and w/o marginalization: {}, \n \
+        Truthful Play success prob: {}, \n \
         Private play success prob: {}, \n \
         expected length: {}, \n \
         total correlation: {}, \n \
         joint entropy: {}'.format(success_prob_reach, 
-                                  empirical_rate_reach,
+                                  truthful_rate_reach,
                                   private_rate_reach,
                                     expected_len_reach, 
                                     total_corr_reach,
@@ -275,14 +277,6 @@ for i in range(80):
                                 g_grad=g_grad,
                                 x=occupancy_vars)
     
-    # Empirically test the success rate of the joint policy under truthful communication.
-    empirical_rate = empirical_success_rate(
-        env,
-        policy,
-        num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
-        max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
-    )
-    
     # Now get the marginalized policies to run private play.
     if exp_logger['empirical_eval_settings']['policy_type'] == 'local':
         eval_policy = LocalPolicies(mdp, env.N_agents, x=occupancy_vars)
@@ -296,6 +290,14 @@ for i in range(80):
                 exp_logger['empirical_eval_settings']['dependency_structure'],
                 x=occupancy_vars,
             )
+
+    # Empirically test the success rate of the joint policy under truthful communication.
+    truthful_rate = empirical_success_rate(
+        env,
+        eval_policy,
+        num_trajectories=exp_logger['empirical_eval_settings']['num_trajectories'],
+        max_steps_per_trajectory=exp_logger['empirical_eval_settings']['max_steps_per_trajectory']
+    )
 
     # Empirically test the success rate of the policies under private communication.
     private_rate = empirical_success_rate_private(
@@ -319,7 +321,7 @@ for i in range(80):
         'expected_len' : expected_len,
         'joint_entropy' : joint_entropy,
         'total_corr' : total_corr,
-        'empirical_imag_success_rate' : empirical_rate,
+        'empirical_truthful_success_rate' : truthful_rate,
         'empirical_private_success_rate' : private_rate,
     }
     
@@ -328,7 +330,8 @@ for i in range(80):
         print('KL divergence between joint and marginalized policies: {}'.format(policy_kl))
     
     # Print the results to the terminal
-    print('\n [{}]: Success probability: {}, Expected length: {}, total correlation: {}'.format(
+    print('\n [{}]: Success probability w/ truthful communication and w/o marginalization: {}, \n\
+         Expected length: {}, \n total correlation: {}'.format(
                                     i, 
                                     exp_logger['results'][i]['success_prob'],
                                     exp_logger['results'][i]['expected_len'],
@@ -336,10 +339,10 @@ for i in range(80):
                                 )
         )
     
+    print('Truthful Play success prob: {}'.format(
+            exp_logger['results'][i]['empirical_truthful_success_rate']))
+
     print('Private Play success prob: {}'.format(exp_logger['results'][i]['empirical_private_success_rate']))
-    
-    print('Imaginary Play success prob: {}'.format(
-        exp_logger['results'][i]['empirical_imag_success_rate']))
     
     print('TC: {}'.format(vars[1].value))
 

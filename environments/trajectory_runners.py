@@ -14,7 +14,6 @@ def run_trajectory(
         env, 
         policy, 
         max_steps : int = 50,
-        policy_type : str = 'joint',
     ):
     """
     Run a trajectory from the joint initial state implementing the
@@ -29,9 +28,6 @@ def run_trajectory(
         Either a JointPolicy or a LocalPolicy object.
     max_steps :
         Maximum number of steps to take in the trajectory.
-    policy_type :
-        Whether or not to run the privatized policy execution with a 
-        joint, local, or acyclic local policies.
 
     Returns
     -------
@@ -42,23 +38,8 @@ def run_trajectory(
     traj.append(env.initial_index)
     s = env.initial_index
 
-    if policy_type == 'joint':
-        assert isinstance(policy, JointPolicy)
-    elif policy_type == 'local':
-        assert isinstance(policy, LocalPolicies)
-    elif policy_type == 'acyclic':
-        assert isinstance(policy, LocalPoliciesAcyclicDependencies)
-
     while ((s not in env.target_indexes) and (s not in env.dead_indexes)
                 and len(traj) <= max_steps):
-
-        # if policy_type == 'joint':
-        #     a = policy.sample_joint_action(s)
-        # elif policy_type == 'local':
-        #     agents_actions = {}
-        #     # Now that we have each agents action, make it a tuple joint action
-        #     a_tuple = tuple(agents_actions[agent_id] for agent_id in range(env.N_agents))
-        #     a_joint_id = env.action_index_from_tuple[a_tuple]
         
         a = policy.sample_joint_action(s)
         s = np.random.choice(np.arange(env.Ns_joint), p=env.T[s,a,:])
@@ -190,7 +171,7 @@ def run_trajectory_private(
                 agents_actions[agent_id] = my_action
                 
             elif policy_type == 'acyclic':
-                my_action = policy.sample_local_action(agent_i_s_hat_local_inds, agent_id)
+                my_action = policy.sample_local_action(agent_id, agent_i_s_hat_local_inds)
                 agents_actions[agent_id] = my_action
                 
         # Now that we have each agents action, make it a tuple joint action
