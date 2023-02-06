@@ -25,11 +25,19 @@ tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 ##### Load the saved experiment file
 save_str_list = []
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
-save_str_list.append(os.path.join(base_path, '2023-01-13-16-11-11_sys_admin_minimum_dependency_0001.pkl'))
-save_str_list.append(os.path.join(base_path, '2023-01-13-16-16-51_sys_admin_minimum_dependency_1111.pkl'))
-save_str_list.append(os.path.join(base_path, '2023-01-13-16-14-02_sys_admin_minimum_dependency_0022.pkl'))
-save_str_list.append(os.path.join(base_path, '2023-01-13-16-09-07_sys_admin_minimum_dependency_0033.pkl'))
-save_str_list.append(os.path.join(base_path, '2023-01-13-16-19-38_sys_admin_minimum_dependency_2233.pkl'))
+
+# Used in initial IJCAI submission
+# save_str_list.append(os.path.join(base_path, '2023-01-13-16-11-11_sys_admin_minimum_dependency_0001.pkl'))
+# save_str_list.append(os.path.join(base_path, '2023-01-13-16-16-51_sys_admin_minimum_dependency_1111.pkl'))
+# save_str_list.append(os.path.join(base_path, '2023-01-13-16-14-02_sys_admin_minimum_dependency_0022.pkl'))
+# save_str_list.append(os.path.join(base_path, '2023-01-13-16-09-07_sys_admin_minimum_dependency_0033.pkl'))
+# save_str_list.append(os.path.join(base_path, '2023-01-13-16-19-38_sys_admin_minimum_dependency_2233.pkl'))
+
+save_str_list.append(os.path.join(base_path, '2023-02-06-15-40-00_sys_admin_minimum_dependency_0001.pkl'))
+save_str_list.append(os.path.join(base_path, '2023-02-06-15-45-57_sys_admin_minimum_dependency_1111.pkl'))
+save_str_list.append(os.path.join(base_path, '2023-02-06-15-49-23_sys_admin_minimum_dependency_0022.pkl'))
+save_str_list.append(os.path.join(base_path, '2023-02-06-15-51-10_sys_admin_minimum_dependency_0033.pkl'))
+save_str_list.append(os.path.join(base_path, '2023-02-06-15-53-14_sys_admin_minimum_dependency_2233.pkl'))
 
 exp_loggers = {}
 results = {}
@@ -58,38 +66,38 @@ max_steps_per_trajectory = 1000
 
 for trial in tqdm(exp_loggers.keys()):
     
-    md_policy = exp_loggers[trial]['results'][max(exp_loggers[trial]['results'].keys())]['policy']
-    base_policy = exp_loggers[trial]['max_reachability_results']['policy']
+    md_policy = exp_loggers[trial]['results'][max(exp_loggers[trial]['results'].keys())]['eval_policy']
+    base_policy = exp_loggers[trial]['max_reachability_results']['eval_policy']
 
-    marginalized_md_policy_list = marginalize_policy(md_policy, mdp, N_agents)
-    marginalized_base_policy_list = marginalize_policy(base_policy, mdp, N_agents)
+    # marginalized_md_policy_list = marginalize_policy(md_policy, mdp, N_agents)
+    # marginalized_base_policy_list = marginalize_policy(base_policy, mdp, N_agents)
 
     for e in epsilon_list:
         # Compute the empirical success rate for the minimum dependency policy
         md_success_prob = empirical_success_rate_private(
                             env, 
-                            marginalized_md_policy_list,
+                            md_policy,
                             num_trajectories=num_trajectories,
                             max_steps_per_trajectory=max_steps_per_trajectory,
                             epsilon=e, 
                             k=exp_loggers[trial]['empirical_eval_settings']['adjacency_parameter'],
-                            use_marginalized_policies=True,
-                        )
+                            policy_type=exp_loggers[trial]['empirical_eval_settings']['policy_type'],
+        )
         # Compute the empirical success rate for the baseline policy
         base_success_prob = empirical_success_rate_private(
                                 env, 
-                                marginalized_base_policy_list,
+                                base_policy,
                                 num_trajectories=num_trajectories,
                                 max_steps_per_trajectory=max_steps_per_trajectory, 
                                 epsilon=e, 
                                 k=exp_loggers[trial]['empirical_eval_settings']['adjacency_parameter'],
-                                use_marginalized_policies=True,
-                            )
+                                policy_type=exp_loggers[trial]['empirical_eval_settings']['policy_type'],
+        )
         results[trial]['md'].append(md_success_prob)
         results[trial]['base'].append(base_success_prob)
 
-    results[trial]['md'].append(exp_loggers[trial]['results'][max(exp_loggers[trial]['results'].keys())]['success_prob'])
-    results[trial]['base'].append(exp_loggers[trial]['max_reachability_results']['success_prob'])
+    results[trial]['md'].append(exp_loggers[trial]['results'][max(exp_loggers[trial]['results'].keys())]['empirical_truthful_success_rate'])
+    results[trial]['base'].append(exp_loggers[trial]['max_reachability_results']['empirical_truthful_success_rate'])
 
 # Now plot the results in a nice bar chart
 

@@ -36,6 +36,6 @@ ax.set_ylabel('Probability of Success')
 ax.set_xticks(np.array([0.36, 1.35, 2.35]))
 ax.set_xticklabels(['0001', '0022', '2233'])
 
-tikzplotlib.save('tikz/sys_admin_bar_chart.tex')
+# tikzplotlib.save('tikz/sys_admin_bar_chart.tex')
 
 plt.show()

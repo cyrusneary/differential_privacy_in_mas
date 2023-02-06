@@ -25,7 +25,7 @@ from markov_decision_process.policies import JointPolicy, LocalPolicies, \
 ##########################
 
 # Set the configuration file to load
-config_file = 'ma_gridworld_config'
+config_file = 'sysadmin_config'
 
 if config_file == 'ma_gridworld_config':
     from experiments.configurations.ma_gridworld_config import exp_logger
@@ -258,7 +258,7 @@ params[2].value = exp_logger['optimization_params']['total_corr_coef']
 ########################################################################################
 
 x_last = x_start
-for i in range(80):
+for i in range(20):
     params[3].value = x_last
     # prob.solve(verbose=True, solver='ECOS') 
     prob.solve(verbose=False, solver='MOSEK')

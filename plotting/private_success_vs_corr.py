@@ -19,14 +19,14 @@ tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
 
 save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl' # In the initial submission to IJCAI
-save_file_name = '2023-02-05-17-14-45_ma_gridworld_minimum_dependency_0p05.pkl'
+save_file_name = '2023-02-06-15-17-21_ma_gridworld_minimum_dependency_0p05.pkl'
 
 save_str = os.path.join(base_path, save_file_name)
 
 with open(save_str, 'rb') as f:
     exp_logger = pickle.load(f)
 
-success_prob_reachability = exp_logger['max_reachability_results']['success_prob'] * np.ones((num_data_points,))
+success_prob_reachability = exp_logger['max_reachability_results']['empirical_truthful_success_rate'] * np.ones((num_data_points,))
 empirical_private_reachability = exp_logger['max_reachability_results']['empirical_private_success_rate']
 # print(exp_logger['max_reachability_results'].keys())
 total_corr_reachability = exp_logger['max_reachability_results']['total_corr_reach']
