@@ -18,7 +18,7 @@ tikz_save_path = os.path.abspath(os.path.join(os.path.curdir, 'tikz'))
 
 base_path = os.path.abspath(os.path.join(os.path.curdir, '..', 'experiments', 'results'))
 
-save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl' # In the initial submission to IJCAI
+# save_file_name = '2023-01-11-14-12-04_ma_gridworld_minimum_dependency_0p05.pkl' # In the initial submission to IJCAI
 save_file_name = '2023-02-06-15-17-21_ma_gridworld_minimum_dependency_0p05.pkl'
 
 save_str = os.path.join(base_path, save_file_name)
@@ -34,17 +34,17 @@ empirical_private_reachability = exp_logger['max_reachability_results']['empiric
 # Get the relevant data in numpy format
 iters_indexes = exp_logger['results'].keys()
 
+print(exp_logger['results'][0].keys())
+
 total_corr = []
 success_prob = []
 empirical_private = []
 iters = []
 for key in range(num_data_points):
     total_corr.append(exp_logger['results'][key]['total_corr'])
-    success_prob.append(exp_logger['results'][key]['success_prob'])
+    success_prob.append(exp_logger['results'][key]['empirical_truthful_success_rate'])
     empirical_private.append(exp_logger['results'][key]['empirical_private_success_rate'])
     iters.append(key)
-
-bound = np.array(success_prob) - np.sqrt(1 - np.exp(-np.array(total_corr)))
 
 # Plot 
 fig = plt.figure()
@@ -63,22 +63,13 @@ ax.plot(iters, empirical_private_reachability,
             color='red', linestyle='-', linewidth=linewidth,
             label='Privatized Policy Execution ($\epsilon = 1$) -- Baseline Policy')
 
-# ax.plot(iters, bound,
-#             color='black', 
-#             label='Theoretical Lower Bound on Success Probability of Privatized Policy Execution')
-
 print('MD Policy no privacy: {}'.format(np.max(success_prob)))
 print('MD Policy with privacy: {}'.format(np.max(empirical_private)))
 
 print('baseline policy no privacy: {}'.format(np.max(success_prob_reachability)))
 print('baseline policy with privacy: {}'.format(np.max(empirical_private_reachability)))
 
-# ax.grid()
-# ax.set_ylabel('Probability of Team Success', fontsize=fontsize)
-# ax.set_xlabel('Number of Iterations of Policy Synthesis Algorithm', fontsize=fontsize)
-# plt.legend(fontsize=fontsize)
-
 tikz_file_str = os.path.join(tikz_save_path, 'success_prob_vs_iters_two_agent_navigation.tex')
-# tikzplotlib.save(tikz_file_str)
+tikzplotlib.save(tikz_file_str)
 
-plt.show()
+# plt.show()

@@ -1,0 +1,50 @@
+% This file was created with tikzplotlib v0.10.1.
+\begin{tikzpicture}
+
+\definecolor{crimson2143940}{RGB}{214,39,40}
+\definecolor{darkgray176}{RGB}{176,176,176}
+\definecolor{darkorange25512714}{RGB}{255,127,14}
+\definecolor{forestgreen4416044}{RGB}{44,160,44}
+\definecolor{mediumpurple148103189}{RGB}{148,103,189}
+\definecolor{sienna1408675}{RGB}{140,86,75}
+\definecolor{steelblue31119180}{RGB}{31,119,180}
+
+\begin{axis}[
+tick align=outside,
+tick pos=left,
+x grid style={darkgray176},
+xmin=-0.342425, xmax=3.027425,
+xtick style={color=black},
+xtick={0.36,1.35,2.35},
+xticklabels={0001,0022,2233},
+y grid style={darkgray176},
+ylabel={Probability of Success},
+ymin=0, ymax=1.05,
+ytick style={color=black}
+]
+\draw[draw=none,fill=steelblue31119180] (axis cs:-0.05,0) rectangle (axis cs:0.05,0.982);
+\draw[draw=none,fill=steelblue31119180] (axis cs:0.95,0) rectangle (axis cs:1.05,0.974);
+\draw[draw=none,fill=steelblue31119180] (axis cs:1.95,0) rectangle (axis cs:2.05,0.967);
+\draw[draw=none,fill=darkorange25512714] (axis cs:0.415,0) rectangle (axis cs:0.515,0.323);
+\draw[draw=none,fill=darkorange25512714] (axis cs:1.415,0) rectangle (axis cs:1.515,0.273);
+\draw[draw=none,fill=darkorange25512714] (axis cs:2.415,0) rectangle (axis cs:2.515,0.367);
+\draw[draw=none,fill=forestgreen4416044] (axis cs:0.06,0) rectangle (axis cs:0.16,0.984);
+\draw[draw=none,fill=forestgreen4416044] (axis cs:1.06,0) rectangle (axis cs:1.16,0.981);
+\draw[draw=none,fill=forestgreen4416044] (axis cs:2.06,0) rectangle (axis cs:2.16,0.979);
+\draw[draw=none,fill=crimson2143940] (axis cs:0.525,0) rectangle (axis cs:0.625,0.338);
+\draw[draw=none,fill=crimson2143940] (axis cs:1.525,0) rectangle (axis cs:1.625,0.242);
+\draw[draw=none,fill=crimson2143940] (axis cs:2.525,0) rectangle (axis cs:2.625,0.362);
+\draw[draw=none,fill=mediumpurple148103189] (axis cs:0.17,0) rectangle (axis cs:0.27,0.992);
+\draw[draw=none,fill=mediumpurple148103189] (axis cs:1.17,0) rectangle (axis cs:1.27,0.996);
+\draw[draw=none,fill=mediumpurple148103189] (axis cs:2.17,0) rectangle (axis cs:2.27,0.997);
+\draw[draw=none,fill=sienna1408675] (axis cs:0.635,0) rectangle (axis cs:0.735,0.503);
+\draw[draw=none,fill=sienna1408675] (axis cs:1.635,0) rectangle (axis cs:1.735,0.284);
+\draw[draw=none,fill=sienna1408675] (axis cs:2.635,0) rectangle (axis cs:2.735,0.448);
+\addplot [black]
+table {%
+-0.18925 1
+2.87425 1
+};
+\end{axis}
+
+\end{tikzpicture}

@@ -142,6 +142,6 @@ ax.grid()
 # ax.legend(fontsize=fontsize)
 
 tikz_file_str = os.path.join(tikz_save_path, 'success_vs_privacy_parameter_two_agent_navigation.tex')
-# tikzplotlib.save(tikz_file_str)
+tikzplotlib.save(tikz_file_str)
 
-plt.show()
+# plt.show()
